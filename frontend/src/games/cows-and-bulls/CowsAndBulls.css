@@ -1,0 +1,130 @@
+/* This game's signature colors. --accent drives the eyebrow, focus ring,
+   and buttons (via the shared rules in App.css); --bull/--cow are used
+   only here for the peg indicators and reward tiers. */
+.theme-cows-bulls {
+  --accent: #f2b705;
+  --bull: #f2b705;
+  --cow: #4fd1c5;
+}
+
+/* ---- form ---- */
+
+.guess-form {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.guess-input {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  letter-spacing: 0.3em;
+  text-align: center;
+  width: 140px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  color: var(--text);
+}
+
+.guess-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ---- rules ---- */
+
+.rules-panel {
+  margin-top: 16px;
+}
+
+.rules-content {
+  margin-top: 8px;
+  padding: 16px;
+  background: var(--bg);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.text-bull { color: var(--bull); }
+.text-cow { color: var(--cow); }
+
+/* ---- history ---- */
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history-row {
+  display: grid;
+  grid-template-columns: 36px auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: var(--radius);
+}
+
+.guess-digits {
+  display: flex;
+  gap: 4px;
+}
+
+.digit-tile {
+  font-family: var(--font-display);
+  width: 26px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+}
+
+.pegs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.peg {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.peg-bull {
+  background: var(--bull);
+}
+
+.peg-cow {
+  background: transparent;
+  border: 2px solid var(--cow);
+}
+
+.score-text {
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .history-row {
+    grid-template-columns: 28px auto 1fr;
+  }
+  .score-text {
+    display: none;
+  }
+}

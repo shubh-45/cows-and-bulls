@@ -1,0 +1,61 @@
+.theme-highlow {
+  --accent: #4ade80;
+}
+
+.highlow-form {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.highlow-input {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  text-align: center;
+  width: 100px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  color: var(--text);
+}
+
+.highlow-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.highlow-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.highlow-row {
+  display: grid;
+  grid-template-columns: 36px auto 1fr;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: var(--radius);
+}
+
+.highlow-guess {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.highlow-direction {
+  text-align: right;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.direction-higher .highlow-direction { color: #ff8ba0; }
+.direction-lower .highlow-direction { color: #60a5fa; }
+.direction-correct .highlow-direction { color: var(--accent); font-weight: 600; }

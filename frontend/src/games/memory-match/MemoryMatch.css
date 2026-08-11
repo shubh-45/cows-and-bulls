@@ -1,0 +1,84 @@
+.theme-memory {
+  --accent: #f472b6;
+}
+
+.memory-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+}
+
+.memory-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.memory-card {
+  aspect-ratio: 1;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  /* perspective on the button itself is what makes the child's rotateY
+     look like a genuine 3D flip instead of a flat squash */
+  perspective: 600px;
+}
+
+.memory-card:disabled {
+  cursor: default;
+}
+
+.memory-card-inner {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.35s ease;
+}
+
+.memory-card.is-flipped .memory-card-inner {
+  transform: rotateY(180deg);
+}
+
+.memory-card-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  backface-visibility: hidden;
+  font-size: 1.6rem;
+}
+
+.memory-card-front {
+  background: var(--bg);
+  border: 1px solid var(--panel-border);
+  color: var(--muted);
+  font-family: var(--font-display);
+}
+
+.memory-card-back {
+  background: color-mix(in srgb, var(--accent) 18%, var(--panel));
+  border: 1px solid var(--accent);
+  transform: rotateY(180deg);
+}
+
+.memory-card.is-matched .memory-card-back {
+  opacity: 0.55;
+}
+
+@media (max-width: 420px) {
+  .memory-status {
+    font-size: 0.8rem;
+  }
+  .memory-card-face {
+    font-size: 1.3rem;
+  }
+}

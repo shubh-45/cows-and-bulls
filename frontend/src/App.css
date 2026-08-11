@@ -1,0 +1,189 @@
+.site-nav {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 20px 0;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 1.05rem;
+}
+
+.brand-mark {
+  font-size: 1.2rem;
+}
+
+/* ---- shared page + panel scaffolding, reused by Home and every game ---- */
+
+.page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 40px 20px 80px;
+}
+
+.page.home {
+  max-width: 900px;
+}
+
+.eyebrow {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent, var(--muted));
+  margin: 0 0 8px;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.page-header h1 {
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  margin: 0 0 8px;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  color: var(--muted);
+  margin: 0;
+}
+
+.back-link {
+  display: inline-block;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+  margin-bottom: 16px;
+}
+
+.back-link:hover {
+  color: var(--text);
+}
+
+.game-panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  padding: 28px;
+}
+
+/* ---- shared buttons + status text, used across every game ---- */
+
+.btn {
+  border-radius: var(--radius);
+  padding: 12px 20px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--accent, #ef476f);
+  color: #10060b;
+}
+
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: var(--panel-border);
+  color: var(--muted);
+}
+
+.btn-ghost:hover {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+.field-error {
+  width: 100%;
+  color: #ff8ba0;
+  font-size: 0.85rem;
+  margin: 4px 0 0;
+}
+
+.empty-state {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.error-banner {
+  text-align: center;
+  color: #ff8ba0;
+}
+
+/* ---- shared "guess log" list header, reused by every game that keeps
+   a history of attempts ---- */
+
+.history-section {
+  margin-top: 28px;
+  border-top: 1px solid var(--panel-border);
+  padding-top: 20px;
+}
+
+.history-section h2 {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+
+.attempt-number {
+  font-family: var(--font-display);
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* ---- shared "you won" reward banner + medal tiers, reused by every
+   game that has a win condition and an attempt-based reward system ---- */
+
+.reward-banner {
+  text-align: center;
+  padding: 28px 20px;
+  border-radius: var(--radius);
+  background: var(--bg);
+  border: 1px solid var(--panel-border);
+  margin-bottom: 20px;
+}
+
+.reward-emoji {
+  font-size: 2.4rem;
+}
+
+.reward-banner h2 {
+  font-family: var(--font-display);
+  margin: 8px 0 4px;
+}
+
+.reward-tier-label {
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.tier-gold .reward-tier-label { color: var(--tier-gold); }
+.tier-silver .reward-tier-label { color: var(--tier-silver); }
+.tier-bronze .reward-tier-label { color: var(--tier-bronze); }
+.tier-participant .reward-tier-label { color: var(--tier-participant); }
+
+.reward-secret {
+  color: var(--muted);
+  margin: 0 0 16px;
+}

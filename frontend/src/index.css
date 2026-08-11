@@ -1,0 +1,54 @@
+:root {
+  /* Shared shell tokens - every game reuses these so the site feels like
+     one product. Games override --accent (and add their own variables)
+     on their own wrapper element - see each game's own CSS file for
+     examples (e.g. games/high-low/HighLow.css). */
+  --bg: #0f1115;
+  --panel: #171b23;
+  --panel-border: #262b36;
+  --text: #ece9e2;
+  --muted: #8b93a1;
+  --accent: #ef476f;
+  --radius: 10px;
+
+  /* Medal colors for the reward banner - fixed across every game so a
+     gold badge means the same thing everywhere, regardless of that
+     game's own accent color. */
+  --tier-gold: #f5c518;
+  --tier-silver: #c9d1d9;
+  --tier-bronze: #d08a4f;
+  --tier-participant: #4fd1c5;
+  --font-display: 'JetBrains Mono', monospace;
+  --font-body: 'Inter', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--text);
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 28px 28px;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+}
+
+code {
+  font-family: var(--font-display);
+  background: rgba(255,255,255,0.08);
+  padding: 0.1em 0.4em;
+  border-radius: 4px;
+}
