@@ -1,0 +1,260 @@
+/* This game's signature colors. --accent drives the eyebrow and buttons via
+   the shared rules in App.css; the tile states below are local to Wordle. */
+.theme-wordle {
+  --accent: #34d399;
+  --tile-correct: #3aa76d;
+  --tile-present: #c9a227;
+  --tile-absent: #3a4150;
+}
+
+/* ---- message slot ---- */
+
+/* Fixed min-height so the board doesn't jump when the message or the Clear
+   button appears or disappears. */
+.wordle-message-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 30px;
+  margin-bottom: 12px;
+}
+
+.wordle-message {
+  margin: 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--accent);
+  font-family: var(--font-display);
+}
+
+/* Wipes the whole in-progress row in one tap - a rejected five-letter word
+   otherwise takes five presses of backspace to clear. */
+.wordle-clear {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+
+.wordle-clear:hover {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+/* ---- board ---- */
+
+.wordle-board {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.wordle-row {
+  display: flex;
+  gap: 6px;
+}
+
+.wordle-tile {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: var(--bg);
+  border: 2px solid var(--panel-border);
+  border-radius: 6px;
+  color: var(--text);
+}
+
+/* a typed-but-not-yet-submitted letter gets a brighter edge and a small pop */
+.wordle-tile.is-filled {
+  border-color: var(--muted);
+  animation: tile-pop 0.1s ease;
+}
+
+.tile-correct,
+.tile-present,
+.tile-absent {
+  border-color: transparent;
+  color: #0d1117;
+  animation: tile-reveal 0.35s ease both;
+}
+
+.tile-correct { background: var(--tile-correct); }
+.tile-present { background: var(--tile-present); }
+.tile-absent  { background: var(--tile-absent); color: var(--text); }
+
+@keyframes tile-pop {
+  from { transform: scale(0.92); }
+  to   { transform: scale(1); }
+}
+
+@keyframes tile-reveal {
+  from { transform: rotateX(-90deg); }
+  to   { transform: rotateX(0deg); }
+}
+
+.wordle-board.is-shaking {
+  animation: board-shake 0.4s ease;
+}
+
+@keyframes board-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+/* ---- keyboard ---- */
+
+.wordle-keyboard {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.keyboard-row {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+}
+
+/* flex:1 with min-width:0 lets the ten-key top row shrink to fit a narrow
+   phone instead of overflowing; max-width stops keys ballooning on desktop */
+.key {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 44px;
+  height: 50px;
+  padding: 0;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--panel-border);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.key:hover {
+  filter: brightness(1.2);
+}
+
+.key-wide {
+  flex: 1.6 1 0;
+  max-width: 64px;
+  font-size: 0.65rem;
+}
+
+.key-correct { background: var(--tile-correct); color: #0d1117; }
+.key-present { background: var(--tile-present); color: #0d1117; }
+.key-absent  { background: #22262f; color: var(--muted); }
+
+/* Scale the board and keys down together on phones. Nothing is hidden -
+   the full six-row board and all 28 keys stay on screen at 320px. */
+@media (max-width: 480px) {
+  .wordle-tile {
+    width: 46px;
+    height: 46px;
+    font-size: 1.3rem;
+  }
+
+  .key {
+    height: 46px;
+    font-size: 0.8rem;
+  }
+
+  .key-wide {
+    font-size: 0.6rem;
+  }
+
+  .keyboard-row {
+    gap: 4px;
+  }
+
+  .wordle-keyboard {
+    margin-top: 18px;
+  }
+}
+
+@media (max-width: 360px) {
+  .wordle-tile {
+    width: 42px;
+    height: 42px;
+    font-size: 1.15rem;
+  }
+}
+
+/* ---- rules ---- */
+
+.wordle-rules {
+  margin-top: 22px;
+  border-top: 1px solid var(--panel-border);
+  padding-top: 16px;
+}
+
+.wordle-rules summary {
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.rules-body {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.rules-body p {
+  margin: 0 0 12px;
+}
+
+.rules-body p:last-child {
+  margin-bottom: 0;
+}
+
+.rules-legend {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rules-legend li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* a shrunken tile reusing the real tile-* colors, so the legend can never
+   drift out of sync with the board */
+.legend-tile {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  font-size: 0.85rem;
+  border-radius: 4px;
+  animation: none;
+}

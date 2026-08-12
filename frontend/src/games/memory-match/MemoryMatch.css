@@ -2,10 +2,16 @@
   --accent: #f472b6;
 }
 
+/* wrap + gap rather than plain space-between: on a narrow phone the three
+   items ran out of room and butted straight into each other, so "Moves: 0"
+   and "Pairs: 0 / 8" read as one string and the count collided with the
+   New Game button. The gap is the floor; wrapping is the release valve. */
 .memory-status {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: 10px 14px;
   margin-bottom: 20px;
   color: var(--muted);
   font-family: var(--font-display);

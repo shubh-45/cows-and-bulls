@@ -120,11 +120,21 @@
   white-space: nowrap;
 }
 
+/* On narrow screens the row wraps onto two lines rather than hiding the
+   score text. Hiding it looked fine until a guess scored 0 bulls AND 0
+   cows - that draws no peg dots either, so the row went completely blank
+   with no feedback at all. Wrapping keeps every guess readable. */
 @media (max-width: 480px) {
   .history-row {
-    grid-template-columns: 28px auto 1fr;
+    grid-template-columns: 28px auto;
+    row-gap: 6px;
+  }
+  .pegs {
+    grid-column: 1 / -1;
+    min-height: 12px;
   }
   .score-text {
-    display: none;
+    grid-column: 1 / -1;
+    text-align: left;
   }
 }

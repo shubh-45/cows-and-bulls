@@ -1,0 +1,231 @@
+/* This game's signature colors. --accent drives the eyebrow and buttons via
+   the shared rules in App.css; the felt greens below are local to Reversi -
+   a green board is the one thing everyone recognises Othello by. */
+.theme-reversi {
+  --accent: #38bdf8;
+  --felt: #1d5b41;
+  --felt-line: #143f2e;
+}
+
+/* ---- status bar ---- */
+
+/* wrap + gap so the two score chips and the button never collide on a
+   narrow phone the way a bare space-between would let them */
+.reversi-status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px 14px;
+  margin-bottom: 14px;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.score-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: var(--bg);
+}
+
+.score-chip strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+/* highlights whose turn it is without moving anything around */
+.score-chip.is-turn {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.reversi-turn {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 14px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.reversi-pass {
+  color: var(--accent);
+}
+
+.disc-inline {
+  display: inline-flex;
+}
+
+/* ---- board ---- */
+
+/* aspect-ratio on the board plus 8 equal rows keeps every cell square at
+   any width, so the whole thing scales down to a phone without media
+   queries or fixed pixel sizes. */
+.reversi-board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  gap: 2px;
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 1;
+  margin: 0 auto;
+  padding: 2px;
+  background: var(--felt-line);
+  border-radius: 8px;
+}
+
+.reversi-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 2px;
+  background: var(--felt);
+  cursor: default;
+}
+
+.reversi-cell.is-legal {
+  cursor: pointer;
+}
+
+/* the translucent dot marking a playable square */
+.reversi-cell.is-legal::after {
+  content: '';
+  width: 26%;
+  height: 26%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.reversi-cell.is-legal:hover::after {
+  transform: scale(1.35);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+/* a ring on the square that was just played, so the AI's reply is easy to
+   spot on a board where several discs changed color at once */
+.reversi-cell.is-last {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+/* ---- discs ---- */
+
+.disc {
+  width: 78%;
+  height: 78%;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  animation: disc-in 0.18s ease;
+}
+
+/* off-centre highlight reads as a lit, physical disc rather than a flat
+   circle. Both colors are stated explicitly so neither depends on the
+   other's absence. */
+.disc-black {
+  background: radial-gradient(circle at 34% 30%, #4a5261, #10141b 70%);
+}
+
+.disc-white {
+  background: radial-gradient(circle at 34% 30%, #ffffff, #c2ccd6 72%);
+}
+
+/* the small discs used inline in the score chips and turn line */
+.disc-chip {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  animation: none;
+}
+
+@keyframes disc-in {
+  from { transform: scale(0.55); }
+  to   { transform: scale(1); }
+}
+
+/* ---- mode toggle + rules ---- */
+
+.reversi-modes {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.mode-btn {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.mode-btn:hover {
+  color: var(--text);
+}
+
+.mode-btn.is-active {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.reversi-rules {
+  margin-top: 20px;
+  border-top: 1px solid var(--panel-border);
+  padding-top: 16px;
+}
+
+.reversi-rules summary {
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.rules-body {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.rules-body p {
+  margin: 0 0 10px;
+}
+
+.rules-body p:last-child {
+  margin-bottom: 0;
+}
+
+/* On a phone the discs are small, so drop the hover-only affordances and
+   let the legal-move dots carry the information instead. Nothing is
+   hidden - the full 8x8 board stays on screen. */
+@media (hover: none) {
+  .reversi-cell.is-legal:hover::after {
+    transform: none;
+    background: rgba(255, 255, 255, 0.3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .disc {
+    animation: none;
+  }
+  .reversi-cell.is-legal::after {
+    transition: none;
+  }
+}

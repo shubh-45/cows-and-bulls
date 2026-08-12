@@ -1,84 +1,213 @@
-.hub-header {
+/* ---- hero ----
+   Two soft radial washes sit behind the headline. They're painted on a
+   ::before so they can bleed past the hero's own box without pushing the
+   layout around, and they stay low-opacity so the grid texture from
+   index.css still reads through. */
+
+.hub-hero {
+  position: relative;
   text-align: center;
-  margin-bottom: 40px;
+  padding: 28px 0 44px;
+  margin-bottom: 8px;
 }
 
-.hub-header h1 {
-  font-family: var(--font-display);
-  font-size: 2.6rem;
-  margin: 0 0 8px;
+/* Stays inside the hero's own width on purpose. An earlier version bled
+   past the edges with a negative horizontal inset, which pushed the
+   document wider than the viewport and gave the whole page a horizontal
+   scrollbar on a phone. The radial gradients already fade to transparent,
+   so they read as a soft glow without needing to overhang. */
+.hub-hero::before {
+  content: '';
+  position: absolute;
+  inset: -40px 0 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 62% at 18% 18%, rgba(242, 183, 5, 0.16), transparent 72%),
+    radial-gradient(60% 62% at 82% 22%, rgba(96, 165, 250, 0.16), transparent 72%),
+    radial-gradient(64% 54% at 50% 88%, rgba(244, 114, 182, 0.11), transparent 72%);
+  filter: blur(6px);
 }
+
+.hub-eyebrow {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 14px;
+}
+
+/* clamp() scales the headline fluidly instead of snapping at a breakpoint,
+   so it fills the width on desktop and still fits a 320px phone. */
+.hub-title {
+  font-family: var(--font-display);
+  font-size: clamp(2.1rem, 9vw, 3.6rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  margin: 0 0 16px;
+  background: linear-gradient(96deg, #f2b705 0%, #f472b6 38%, #60a5fa 72%, #34d399 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hub-tagline {
+  max-width: 40ch;
+  margin: 0 auto;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.hub-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin: 22px 0 0;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.hub-meta strong {
+  color: var(--text);
+}
+
+.hub-meta-sep {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--panel-border);
+}
+
+/* ---- sections ---- */
+
+.hub-section {
+  margin-top: 36px;
+}
+
+.hub-section-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 16px;
+  font-weight: 600;
+}
+
+/* the rule trailing each section heading */
+.hub-section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--panel-border), transparent);
+}
+
+/* ---- cards ---- */
 
 .game-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 16px;
 }
 
 .game-card {
   position: relative;
-  display: block;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   text-decoration: none;
   color: var(--text);
-  background: var(--panel);
+  /* the accent tint is strongest at the top-left and fades out, so cards
+     read as colored without drowning the text underneath */
+  background:
+    linear-gradient(150deg, color-mix(in srgb, var(--card-accent) 13%, transparent), transparent 62%),
+    var(--panel);
   border: 1px solid var(--panel-border);
   border-radius: var(--radius);
   padding: 22px 20px;
-  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
-.game-card::before {
+/* the accent hairline across the very top of each card */
+.game-card::after {
   content: '';
   position: absolute;
-  inset: 0;
-  border-radius: var(--radius);
-  padding: 1px;
-  background: linear-gradient(135deg, var(--card-accent), transparent 60%);
-  opacity: 0;
-  transition: opacity 0.15s ease;
-  pointer-events: none;
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--card-accent), transparent 85%);
+  opacity: 0.85;
 }
 
 .game-card:hover {
-  transform: translateY(-3px);
-  border-color: transparent;
-  box-shadow: 0 8px 24px -12px var(--card-accent);
-}
-
-.game-card:hover::before {
-  opacity: 1;
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--card-accent) 45%, var(--panel-border));
+  box-shadow: 0 14px 34px -16px var(--card-accent);
 }
 
 .card-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  font-size: 1.3rem;
-  background: color-mix(in srgb, var(--card-accent) 20%, transparent);
-  margin-bottom: 12px;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  font-size: 1.35rem;
+  margin-bottom: 14px;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--card-accent) 34%, transparent),
+    color-mix(in srgb, var(--card-accent) 12%, transparent)
+  );
+  border: 1px solid color-mix(in srgb, var(--card-accent) 32%, transparent);
 }
 
-.game-card h2 {
+.card-title {
   font-family: var(--font-display);
-  font-size: 1.05rem;
+  font-size: 1.08rem;
   margin: 0 0 6px;
 }
 
-.game-card p {
+.card-tagline {
   color: var(--muted);
   font-size: 0.88rem;
   margin: 0;
   line-height: 1.5;
 }
 
+/* pushed to the bottom with margin-top:auto so every CTA in a row lines up
+   even when taglines wrap to different heights */
+.card-cta {
+  margin-top: auto;
+  padding-top: 16px;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--card-accent);
+}
+
+.card-cta span {
+  display: inline-block;
+  transition: transform 0.18s ease;
+}
+
+.game-card:hover .card-cta span {
+  transform: translateX(4px);
+}
+
+/* ---- coming-soon cards ---- */
+
 .game-card-disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: default;
 }
 
@@ -88,9 +217,12 @@
   border-color: var(--panel-border);
 }
 
+/* margin-top:auto bottom-aligns the pill the way .card-cta is aligned on
+   live cards; the gap above it comes from the tagline so the pill's own
+   padding stays purely visual. */
 .badge-soon {
-  display: inline-block;
-  margin-top: 12px;
+  align-self: flex-start;
+  margin-top: auto;
   font-family: var(--font-display);
   font-size: 0.65rem;
   letter-spacing: 0.06em;
@@ -99,4 +231,45 @@
   border: 1px solid var(--panel-border);
   border-radius: 999px;
   padding: 3px 10px;
+}
+
+.game-card-disabled .card-tagline {
+  margin-bottom: 16px;
+}
+
+/* Cards stay full-width single-column on phones. Nothing is hidden here -
+   only spacing and type scale change. */
+@media (max-width: 480px) {
+  .hub-hero {
+    padding: 16px 0 32px;
+  }
+
+  .hub-section {
+    margin-top: 28px;
+  }
+
+  .game-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .game-card {
+    padding: 18px 16px;
+  }
+}
+
+/* Respect a reduced-motion preference: keep the color, drop the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .game-card,
+  .card-cta span {
+    transition: none;
+  }
+
+  .game-card:hover {
+    transform: none;
+  }
+
+  .game-card:hover .card-cta span {
+    transform: none;
+  }
 }

@@ -1,9 +1,10 @@
 import { HashRouter, Routes, Route, Link } from 'react-router-dom'
 import Home from './pages/Home'
 import CowsAndBullsGame from './games/cows-and-bulls/CowsAndBullsGame'
-import RockPaperScissorsGame from './games/rock-paper-scissors/RockPaperScissorsGame'
 import HighLowGame from './games/high-low/HighLowGame'
 import MemoryMatchGame from './games/memory-match/MemoryMatchGame'
+import WordleGame from './games/wordle/WordleGame'
+import ReversiGame from './games/reversi/ReversiGame'
 import './App.css'
 
 // react-router-dom swaps out the <Routes> content based on the URL path,
@@ -29,9 +30,10 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/games/cows-and-bulls" element={<CowsAndBullsGame />} />
-          <Route path="/games/rock-paper-scissors" element={<RockPaperScissorsGame />} />
           <Route path="/games/high-low" element={<HighLowGame />} />
           <Route path="/games/memory-match" element={<MemoryMatchGame />} />
+          <Route path="/games/wordle" element={<WordleGame />} />
+          <Route path="/games/reversi" element={<ReversiGame />} />
         </Routes>
       </div>
     </HashRouter>
