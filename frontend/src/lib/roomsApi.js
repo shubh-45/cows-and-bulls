@@ -54,7 +54,11 @@ export function forfeitRoom(code, playerId) {
 // wake. Firing this when the lobby opens means the wake-up overlaps with the
 // player reading the screen, instead of stalling their first click.
 export function wakeBackend() {
-  return fetch(`${BASE_URL}/`, { method: 'GET' }).catch(() => {
+  // /api/health rather than / so it falls under the server's /api/** CORS
+  // mapping. Pinging / would wake the instance just the same, but the browser
+  // would block reading the response and log a CORS error that looks like a
+  // real failure.
+  return fetch(`${BASE_URL}/api/health`, { method: 'GET' }).catch(() => {
     /* best effort - a failure here just means the first real call waits */
   })
 }
