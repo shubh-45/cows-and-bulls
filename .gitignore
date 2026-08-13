@@ -1,0 +1,15 @@
+# macOS finder metadata. The leading **/ matters: a bare ".DS_Store" only
+# ignores the one at the repo root, and Finder drops a fresh copy into every
+# directory you happen to open.
+**/.DS_Store
+
+# Editors
+.idea/
+.vscode/
+*.swp
+
+# Environment files - real values belong in the Render/Netlify dashboards,
+# never in the repo. Only .env.example is committed.
+.env
+.env.local
+.env.*.local
