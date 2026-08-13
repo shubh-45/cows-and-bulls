@@ -35,11 +35,30 @@ body {
   font-family: var(--font-body);
   color: var(--text);
   background-color: var(--bg);
-  background-image:
-    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-  background-size: 28px 28px;
   -webkit-font-smoothing: antialiased;
+}
+
+/* The grid backdrop.
+   It used to sit directly on <body> at a flat 3% opacity everywhere, which
+   was too faint to read as deliberate and just looked like noise. Painting
+   it on a pseudo-element instead means it can be masked: stronger at the top
+   of the viewport, dissolving to nothing further down. Content then sits on
+   clean background rather than competing with texture.
+
+   position: fixed keeps it viewport-relative, so the fade looks identical at
+   any scroll position and the lines never drift against the page. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+  background-size: 28px 28px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.45) 42%, transparent 78%);
+  mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.45) 42%, transparent 78%);
 }
 
 button {
