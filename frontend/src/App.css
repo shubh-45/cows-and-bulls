@@ -79,6 +79,22 @@
   border-color: var(--muted);
 }
 
+/* Locked during an online game - reads as a label, not a control. */
+.profile-chip.is-locked {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.profile-chip.is-locked:hover {
+  color: var(--muted);
+  border-color: var(--panel-border);
+}
+
+.profile-lock {
+  font-size: 0.6rem;
+  flex: none;
+}
+
 .profile-avatar {
   display: inline-flex;
   align-items: center;

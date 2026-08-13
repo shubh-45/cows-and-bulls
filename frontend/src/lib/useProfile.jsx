@@ -10,18 +10,28 @@ export function ProfileProvider({ children }) {
   // Lazy initialiser: reads storage once on mount instead of on every render.
   const [profile, setProfile] = useState(() => loadProfile())
 
+  // Your name is copied into a room when you create or join it, and the
+  // server treats it as fixed for that room's lifetime. Renaming afterwards
+  // would leave your opponent staring at the old name with no way to correct
+  // it, so online play holds the name still until you leave.
+  const [nameLocked, setNameLocked] = useState(false)
+
   const register = useCallback((name) => {
     setProfile(saveProfile(createProfile(name)))
   }, [])
 
-  const rename = useCallback((name) => {
-    setProfile((current) => {
-      if (!current) return current
-      const clean = sanitizeName(name)
-      if (!clean) return current
-      return saveProfile({ ...current, name: clean })
-    })
-  }, [])
+  const rename = useCallback(
+    (name) => {
+      if (nameLocked) return
+      setProfile((current) => {
+        if (!current) return current
+        const clean = sanitizeName(name)
+        if (!clean) return current
+        return saveProfile({ ...current, name: clean })
+      })
+    },
+    [nameLocked]
+  )
 
   // Games call this once when a round ends. It's a no-op before the player
   // has picked a name, so a game can call it unconditionally.
@@ -30,8 +40,16 @@ export function ProfileProvider({ children }) {
   }, [])
 
   const value = useMemo(
-    () => ({ profile, isRegistered: Boolean(profile), register, rename, submitResult }),
-    [profile, register, rename, submitResult]
+    () => ({
+      profile,
+      isRegistered: Boolean(profile),
+      register,
+      rename,
+      submitResult,
+      nameLocked,
+      setNameLocked,
+    }),
+    [profile, register, rename, submitResult, nameLocked]
   )
 
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>

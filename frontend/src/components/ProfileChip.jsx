@@ -6,7 +6,7 @@ import { useProfile } from '../lib/useProfile'
 // than a settings page - it's one field, and a whole screen for it would be
 // more chrome than the feature deserves.
 export default function ProfileChip() {
-  const { profile, isRegistered, rename } = useProfile()
+  const { profile, isRegistered, rename, nameLocked } = useProfile()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const inputRef = useRef(null)
@@ -44,6 +44,20 @@ export default function ProfileChip() {
           autoComplete="off"
         />
       </form>
+    )
+  }
+
+  // While a room is open the name is already registered with the server for
+  // that game, so the chip becomes a plain label rather than a button.
+  if (nameLocked) {
+    return (
+      <span className="profile-chip is-locked" title="Your name is fixed while you're in an online game">
+        <span className="profile-avatar" aria-hidden="true">
+          {profile.name.charAt(0).toUpperCase()}
+        </span>
+        <span className="profile-name">{profile.name}</span>
+        <span className="profile-lock" aria-hidden="true">🔒</span>
+      </span>
     )
   }
 
