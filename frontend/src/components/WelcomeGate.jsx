@@ -36,7 +36,7 @@ export default function WelcomeGate() {
 
         <form className="welcome-form" onSubmit={handleSubmit}>
           <label className="welcome-label" htmlFor="welcome-name">
-            What should we call you?
+            What should we call you? <span className="welcome-hint">(you can't change this later)</span>
           </label>
           <input
             id="welcome-name"

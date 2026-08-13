@@ -1,72 +1,21 @@
-import { useEffect, useRef, useState } from 'react'
-import { MAX_NAME_LENGTH } from '../lib/profile'
 import { useProfile } from '../lib/useProfile'
 
-// The player's name in the header, click to rename. Inline editing rather
-// than a settings page - it's one field, and a whole screen for it would be
-// more chrome than the feature deserves.
+// The player's name, shown as a label. It is set once on the welcome screen
+// and is final from then on - there is deliberately no rename. That keeps the
+// name a player registers with an online room identical to the one their
+// opponent sees for the life of that room, with no way for the two screens to
+// disagree.
 export default function ProfileChip() {
-  const { profile, isRegistered, rename, nameLocked } = useProfile()
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState('')
-  const inputRef = useRef(null)
-
-  useEffect(() => {
-    if (editing) inputRef.current?.select()
-  }, [editing])
+  const { profile, isRegistered } = useProfile()
 
   if (!isRegistered) return null
 
-  function open() {
-    setDraft(profile.name)
-    setEditing(true)
-  }
-
-  function commit(event) {
-    event.preventDefault()
-    rename(draft)
-    setEditing(false)
-  }
-
-  if (editing) {
-    return (
-      <form className="profile-chip is-editing" onSubmit={commit}>
-        <input
-          ref={inputRef}
-          className="profile-input"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          maxLength={MAX_NAME_LENGTH}
-          aria-label="Your display name"
-          // commit on blur too, so clicking away doesn't silently discard it
-          onBlur={commit}
-          onKeyDown={(event) => event.key === 'Escape' && setEditing(false)}
-          autoComplete="off"
-        />
-      </form>
-    )
-  }
-
-  // While a room is open the name is already registered with the server for
-  // that game, so the chip becomes a plain label rather than a button.
-  if (nameLocked) {
-    return (
-      <span className="profile-chip is-locked" title="Your name is fixed while you're in an online game">
-        <span className="profile-avatar" aria-hidden="true">
-          {profile.name.charAt(0).toUpperCase()}
-        </span>
-        <span className="profile-name">{profile.name}</span>
-        <span className="profile-lock" aria-hidden="true">🔒</span>
-      </span>
-    )
-  }
-
   return (
-    <button className="profile-chip" onClick={open} title="Change your name">
+    <span className="profile-chip">
       <span className="profile-avatar" aria-hidden="true">
         {profile.name.charAt(0).toUpperCase()}
       </span>
       <span className="profile-name">{profile.name}</span>
-    </button>
+    </span>
   )
 }

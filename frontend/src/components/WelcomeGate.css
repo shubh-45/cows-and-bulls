@@ -94,6 +94,14 @@
   color: var(--muted);
 }
 
+/* The name is final once set, so say so at the point of choosing rather
+   than leaving someone to discover it when they try to change it. */
+.welcome-hint {
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.75;
+}
+
 .welcome-input {
   width: 100%;
   padding: 13px 15px;

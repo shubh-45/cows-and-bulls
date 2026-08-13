@@ -59,6 +59,8 @@
 
 /* ---- profile chip ---- */
 
+/* A label, not a control: the name is set once and never changes, so this
+   deliberately has no hover or pointer affordance. */
 .profile-chip {
   display: inline-flex;
   align-items: center;
@@ -70,29 +72,7 @@
   color: var(--muted);
   font-family: var(--font-display);
   font-size: 0.78rem;
-  cursor: pointer;
   max-width: 55vw;
-}
-
-.profile-chip:hover {
-  color: var(--text);
-  border-color: var(--muted);
-}
-
-/* Locked during an online game - reads as a label, not a control. */
-.profile-chip.is-locked {
-  cursor: default;
-  opacity: 0.75;
-}
-
-.profile-chip.is-locked:hover {
-  color: var(--muted);
-  border-color: var(--panel-border);
-}
-
-.profile-lock {
-  font-size: 0.6rem;
-  flex: none;
 }
 
 .profile-avatar {
@@ -115,24 +95,6 @@
   white-space: nowrap;
 }
 
-.profile-chip.is-editing {
-  padding: 4px;
-}
-
-.profile-input {
-  width: 130px;
-  padding: 5px 10px;
-  font-family: var(--font-display);
-  font-size: 0.78rem;
-  color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--accent, #38bdf8);
-  border-radius: 999px;
-}
-
-.profile-input:focus {
-  outline: none;
-}
 
 /* ---- shared page + panel scaffolding, reused by Home and every game ---- */
 

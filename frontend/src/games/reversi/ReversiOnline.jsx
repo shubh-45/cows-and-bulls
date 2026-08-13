@@ -19,7 +19,7 @@ import {
 const POLL_MS = 1500
 
 export default function ReversiOnline({ onExit }) {
-  const { profile, setNameLocked } = useProfile()
+  const { profile } = useProfile()
   const [room, setRoom] = useState(null)
   const [codeInput, setCodeInput] = useState('')
   const [error, setError] = useState('')
@@ -35,14 +35,6 @@ export default function ReversiOnline({ onExit }) {
   useEffect(() => {
     wakeBackend()
   }, [])
-
-  // Hold the name still for as long as a room is open. The cleanup releases
-  // it on leave *and* on unmount, so navigating away mid-game can never
-  // strand the chip in a locked state.
-  useEffect(() => {
-    setNameLocked(Boolean(room))
-    return () => setNameLocked(false)
-  }, [room, setNameLocked])
 
   const refresh = useCallback(async () => {
     if (!room?.code || !profile) return
