@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import StatsLine from '../../components/StatsLine'
+import { useGameResult } from '../../lib/useGameResult'
 import './HighLow.css'
 
 const MIN = 1
@@ -52,6 +54,8 @@ export default function HighLowGame() {
     }
   }
 
+  useGameResult('high-low', { ended: won, won: true, score: history.length, lowerIsBetter: true })
+
   const tier = won ? tierFor(history.length) : null
 
   return (
@@ -70,6 +74,7 @@ export default function HighLowGame() {
             <h2>Found it in {history.length} guess{history.length !== 1 ? 'es' : ''}!</h2>
             <p className="reward-tier-label">{tier.label}</p>
             <p className="reward-secret">The number was <strong>{secret}</strong></p>
+            <StatsLine gameId="high-low" formatBest={(n) => `${n} guess${n === 1 ? '' : 'es'}`} />
             <button className="btn btn-primary" onClick={startNewGame}>Play Again</button>
           </div>
         ) : (

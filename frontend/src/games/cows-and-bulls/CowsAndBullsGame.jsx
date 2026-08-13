@@ -5,6 +5,8 @@ import GuessForm from './components/GuessForm'
 import GuessHistory from './components/GuessHistory'
 import RewardBadge from './components/RewardBadge'
 import RulesPanel from './components/RulesPanel'
+import StatsLine from '../../components/StatsLine'
+import { useGameResult } from '../../lib/useGameResult'
 import './CowsAndBulls.css'
 
 // "status" is a simple state machine for the whole screen:
@@ -50,6 +52,15 @@ export default function CowsAndBullsGame() {
       setErrorMessage(err.message)
     }
   }
+
+  // The backend is authoritative here - it holds the secret and counts the
+  // attempts - so this is the one game whose score the client cannot inflate.
+  useGameResult('cows-and-bulls', {
+    ended: status === 'won',
+    won: true,
+    score: history.length,
+    lowerIsBetter: true,
+  })
 
   return (
     <div className="page theme-cows-bulls">

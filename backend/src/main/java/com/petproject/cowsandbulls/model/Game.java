@@ -17,6 +17,10 @@ public class Game {
     private final String id;
     private final String secret;
     private final Instant createdAt;
+    // Eviction is based on last activity rather than creation time, so a
+    // player thinking hard about a long game never has it swept out from
+    // under them mid-guess.
+    private volatile Instant lastActivityAt;
     private final List<Attempt> attempts = new ArrayList<>();
     private boolean solved = false;
 
@@ -24,6 +28,7 @@ public class Game {
         this.id = id;
         this.secret = secret;
         this.createdAt = Instant.now();
+        this.lastActivityAt = this.createdAt;
     }
 
     public String getId() {
@@ -36,6 +41,14 @@ public class Game {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Instant getLastActivityAt() {
+        return lastActivityAt;
+    }
+
+    public void touch() {
+        this.lastActivityAt = Instant.now();
     }
 
     public List<Attempt> getAttempts() {
@@ -53,6 +66,7 @@ public class Game {
     public Attempt recordAttempt(String guess, int cows, int bulls) {
         Attempt attempt = new Attempt(attempts.size() + 1, guess, cows, bulls);
         attempts.add(attempt);
+        touch();
         return attempt;
     }
 }

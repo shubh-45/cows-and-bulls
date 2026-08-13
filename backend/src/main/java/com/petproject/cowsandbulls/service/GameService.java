@@ -6,9 +6,15 @@ import com.petproject.cowsandbulls.dto.NewGameResponse;
 import com.petproject.cowsandbulls.exception.GameNotFoundException;
 import com.petproject.cowsandbulls.exception.InvalidGuessException;
 import com.petproject.cowsandbulls.model.Game;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -18,8 +24,18 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class GameService {
 
+    private static final Logger log = LoggerFactory.getLogger(GameService.class);
+
     private final Map<String, Game> games = new ConcurrentHashMap<>();
     private final SecureRandom random = new SecureRandom();
+
+    // This map used to grow without limit: every POST /api/games added an
+    // entry that was never removed. The 15-minute free-tier spin-down hid it
+    // by wiping memory, but under steady traffic the instance would climb
+    // until it was killed. app.game.ttl-minutes existed in the config all
+    // along and was simply never read - now it is.
+    @Value("${app.game.ttl-minutes:60}")
+    private long ttlMinutes;
 
     // ---- Reward tiers -----------------------------------------------------
     // Tune these however you like - they're the whole "reward system" the
@@ -74,6 +90,27 @@ public class GameService {
                 secretNumber,
                 history
         );
+    }
+
+    /**
+     * Evicts games that have seen no activity for longer than the configured
+     * TTL. Runs every five minutes; removeIf on a ConcurrentHashMap is safe
+     * to run while requests are being served.
+     */
+    @Scheduled(fixedDelayString = "${app.game.cleanup-interval-ms:300000}")
+    public void evictIdleGames() {
+        Instant cutoff = Instant.now().minus(Duration.ofMinutes(ttlMinutes));
+        int before = games.size();
+        games.values().removeIf(game -> game.getLastActivityAt().isBefore(cutoff));
+        int removed = before - games.size();
+        if (removed > 0) {
+            log.info("Evicted {} idle game(s); {} still active", removed, games.size());
+        }
+    }
+
+    /** Exposed for the health endpoint and for tests to assert on. */
+    public int activeGameCount() {
+        return games.size();
     }
 
     public List<AttemptView> getHistory(String gameId) {

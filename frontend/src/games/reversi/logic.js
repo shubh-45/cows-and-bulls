@@ -113,6 +113,55 @@ export function nextTurn(board, justMoved) {
   return { player: justMoved, passed: false, over: true }
 }
 
+/* ---- online play ------------------------------------------------------ */
+
+// The server stores an ordered list of moves, never a board. Both players
+// rebuild the position by replaying that list through the rules below, so
+// two clients can never disagree about what the board looks like and the
+// server never needs a copy of the game's rules.
+//
+// Host is always Black (and therefore moves first); guest is White.
+export const HOST_COLOR = BLACK
+export const GUEST_COLOR = WHITE
+
+export function colorForRole(role) {
+  return role === 'host' ? HOST_COLOR : GUEST_COLOR
+}
+
+export function indexToCell(index) {
+  return { row: Math.floor(index / SIZE), col: index % SIZE }
+}
+
+export function cellToIndex(row, col) {
+  return row * SIZE + col
+}
+
+/**
+ * Replays `moves` (each `{ index, role }`, in order) onto a fresh board.
+ * Returns the resulting board plus whose turn it is next, honouring the
+ * pass rule - so a player with no legal move is skipped exactly as in the
+ * local game.
+ */
+export function replayMoves(moves) {
+  let board = createBoard()
+  let lastPlayer = null
+
+  for (const move of moves) {
+    const player = colorForRole(move.role)
+    const { row, col } = indexToCell(move.index)
+    const flips = flipsForMove(board, row, col, player)
+    board = applyMove(board, row, col, player, flips)
+    lastPlayer = player
+  }
+
+  if (lastPlayer === null) {
+    return { board, player: BLACK, over: false }
+  }
+
+  const turn = nextTurn(board, lastPlayer)
+  return { board, player: turn.player, over: turn.over }
+}
+
 // Positional weights for the AI. Corners can never be flipped once taken,
 // so they're worth far more than the discs they turn over; the squares
 // beside a corner are penalised because playing one usually hands the

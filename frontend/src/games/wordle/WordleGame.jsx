@@ -1,6 +1,8 @@
 import { useEffect, useReducer, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { isValidGuess, randomWord } from './words'
+import StatsLine from '../../components/StatsLine'
+import { useGameResult } from '../../lib/useGameResult'
 import './Wordle.css'
 
 const WORD_LENGTH = 5
@@ -163,6 +165,14 @@ export default function WordleGame() {
     return () => clearTimeout(timer)
   }, [shake])
 
+  // Fewer guesses is better, so the personal best is a minimum.
+  useGameResult('wordle', {
+    ended: status !== 'playing',
+    won: status === 'won',
+    score: guesses.length,
+    lowerIsBetter: true,
+  })
+
   const keyStates = buildKeyStates(guesses)
   const tier = status === 'won' ? tierFor(guesses.length) : null
 
@@ -195,6 +205,7 @@ export default function WordleGame() {
             <h2>Solved in {guesses.length} guess{guesses.length !== 1 ? 'es' : ''}!</h2>
             <p className="reward-tier-label">{tier.label}</p>
             <p className="reward-secret">The word was <strong>{answer}</strong></p>
+            <StatsLine gameId="wordle" formatBest={(n) => `${n} guess${n === 1 ? '' : 'es'}`} />
             <button className="btn btn-primary" onClick={startNewGame}>Play Again</button>
           </div>
         )}

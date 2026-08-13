@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import StatsLine from '../../components/StatsLine'
+import { useGameResult } from '../../lib/useGameResult'
 import './MemoryMatch.css'
 
 // 8 symbols x 2 copies each = 16 cards, laid out on a 4x4 grid.
@@ -66,6 +68,9 @@ export default function MemoryMatchGame() {
     }
   }
 
+  // Memory Match has no losing state - it ends only when solved.
+  useGameResult('memory-match', { ended: won, won: true, score: moves, lowerIsBetter: true })
+
   const tier = won ? tierFor(moves) : null
 
   return (
@@ -89,6 +94,7 @@ export default function MemoryMatchGame() {
             <div className="reward-emoji">{tier.emoji}</div>
             <h2>Matched all {SYMBOLS.length} pairs in {moves} moves!</h2>
             <p className="reward-tier-label">{tier.label}</p>
+            <StatsLine gameId="memory-match" formatBest={(n) => `${n} moves`} />
             <button className="btn btn-primary" onClick={startNewGame}>Play Again</button>
           </div>
         )}

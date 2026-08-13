@@ -12,6 +12,9 @@ import {
   legalMoves,
   nextTurn,
 } from './logic'
+import ReversiOnline from './ReversiOnline'
+import StatsLine from '../../components/StatsLine'
+import { useGameResult } from '../../lib/useGameResult'
 import './Reversi.css'
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
@@ -31,6 +34,7 @@ export default function ReversiGame() {
   const [message, setMessage] = useState('')
   const [vsComputer, setVsComputer] = useState(true)
   const [lastMove, setLastMove] = useState(null)
+  const [online, setOnline] = useState(false)
 
   const moves = status === 'playing' ? legalMoves(board, player) : []
   const legalSet = new Set(moves.map((m) => `${m.row},${m.col}`))
@@ -93,6 +97,16 @@ export default function ReversiGame() {
   const gameOver = status === 'over'
   const winner = black > white ? 'black' : white > black ? 'white' : 'draw'
 
+  // Only vs-computer games count towards personal stats: in hot-seat mode
+  // two people share the device, so "you won" has no single meaning. Final
+  // disc count is the score, and more is better.
+  useGameResult('reversi', {
+    ended: gameOver && vsComputer && !online,
+    won: winner === 'black',
+    score: black,
+    lowerIsBetter: false,
+  })
+
   let resultTier = 'tier-participant'
   let resultEmoji = '🤝'
   let resultTitle = "It's a draw"
@@ -119,6 +133,10 @@ export default function ReversiGame() {
       </header>
 
       <main className="game-panel">
+        {online ? (
+          <ReversiOnline onExit={() => setOnline(false)} />
+        ) : (
+        <>
         <div className="reversi-status">
           <span className={`score-chip ${player === BLACK && !gameOver ? 'is-turn' : ''}`}>
             <span className="disc disc-black disc-chip" aria-hidden="true" />
@@ -136,6 +154,7 @@ export default function ReversiGame() {
             <div className="reward-emoji">{resultEmoji}</div>
             <h2>{resultTitle}</h2>
             <p className="reward-secret">Final score {black} &ndash; {white}</p>
+            {vsComputer && <StatsLine gameId="reversi" formatBest={(n) => `${n} discs`} />}
             <button className="btn btn-primary" onClick={() => startNewGame()}>Play Again</button>
           </div>
         ) : (
@@ -194,7 +213,12 @@ export default function ReversiGame() {
           >
             2 Players
           </button>
+          <button className="mode-btn" onClick={() => setOnline(true)}>
+            Online
+          </button>
         </div>
+        </>
+        )}
 
         <details className="reversi-rules">
           <summary>How to play</summary>
