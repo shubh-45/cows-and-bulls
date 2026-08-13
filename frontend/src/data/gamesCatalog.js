@@ -35,6 +35,15 @@ export const GAMES = [
     status: 'live',
   },
   {
+    id: 'tic-tac-toe',
+    title: 'Tic-Tac-Toe',
+    tagline: 'Three in a row, versus the computer or a friend.',
+    icon: '⭕',
+    accent: '#60a5fa',
+    path: '/games/tic-tac-toe',
+    status: 'live',
+  },
+  {
     id: 'memory-match',
     title: 'Memory Match',
     tagline: 'Flip cards, find every pair, beat your best time.',
@@ -51,14 +60,6 @@ export const GAMES = [
     accent: '#4ade80',
     path: '/games/high-low',
     status: 'live',
-  },
-  {
-    id: 'tic-tac-toe',
-    title: 'Tic-Tac-Toe',
-    tagline: 'Classic 3x3 grid battle vs the computer.',
-    icon: '⭕',
-    accent: '#60a5fa',
-    status: 'coming-soon',
   },
   {
     id: 'hangman',

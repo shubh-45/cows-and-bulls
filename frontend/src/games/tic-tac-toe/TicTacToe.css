@@ -1,0 +1,267 @@
+/* This game's signature colors. --accent drives the eyebrow and buttons via
+   the shared rules in App.css; the two mark colors are local. X and O get
+   genuinely different hues rather than two shades of one, so a glance at the
+   board tells you whose turn produced what. */
+.theme-tic-tac-toe {
+  --accent: #60a5fa;
+  --mark-x: #60a5fa;
+  --mark-o: #f9a8d4;
+}
+
+/* ---- status ---- */
+
+.ttt-status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px 14px;
+  margin-bottom: 16px;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.ttt-turn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: var(--bg);
+}
+
+.ttt-turn.is-x { border-color: color-mix(in srgb, var(--mark-x) 55%, transparent); }
+.ttt-turn.is-o { border-color: color-mix(in srgb, var(--mark-o) 55%, transparent); }
+
+.ttt-turn strong {
+  color: var(--text);
+}
+
+/* The small inline X / O used in status rows. Standalone on purpose - it must
+   not pick up .ttt-mark, which sizes a mark to fill a board cell and animates
+   it being drawn. */
+.ttt-badge {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  overflow: visible;
+}
+
+/* ---- board ---- */
+
+.ttt-board-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 340px;
+  margin: 0 auto;
+}
+
+/* aspect-ratio keeps every cell square at any width, so the board scales to
+   a phone without a single media query */
+.ttt-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 10px;
+  aspect-ratio: 1;
+}
+
+.ttt-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.05), transparent 60%),
+    var(--bg);
+  cursor: default;
+  transition: border-color 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
+}
+
+.ttt-cell.is-playable {
+  cursor: pointer;
+}
+
+.ttt-cell.is-playable:hover {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px -14px var(--accent);
+}
+
+/* a ghost of the mark you are about to place */
+.ttt-cell.is-playable::after {
+  content: '';
+  position: absolute;
+  width: 26%;
+  height: 26%;
+  border-radius: 50%;
+  background: currentColor;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.ttt-cell.is-playable:hover::after {
+  opacity: 0.25;
+}
+
+/* the square just played keeps a soft ring, which matters online where the
+   board can change while you are looking away */
+.ttt-cell.is-last {
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+/* ---- marks ---- */
+
+.ttt-mark {
+  width: 62%;
+  height: 62%;
+  overflow: visible;
+}
+
+.ttt-mark path,
+.ttt-mark line,
+.ttt-mark circle {
+  fill: none;
+  stroke-width: 11;
+  stroke-linecap: round;
+  /* Each stroke is dashed to exactly its own length and offset out of sight,
+     then the offset animates to zero - which reads as the mark being drawn
+     by hand rather than popping into place. */
+  stroke-dasharray: var(--len);
+  stroke-dashoffset: var(--len);
+  animation: ttt-draw 0.3s ease forwards;
+}
+
+.ttt-mark-x { color: var(--mark-x); }
+.ttt-mark-o { color: var(--mark-o); }
+
+.ttt-mark-x line { stroke: var(--mark-x); }
+.ttt-mark-o circle { stroke: var(--mark-o); }
+
+/* second stroke of the X starts as the first finishes */
+.ttt-mark-x line:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+@keyframes ttt-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+/* ---- winning line ---- */
+
+.ttt-strike {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.ttt-strike line {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 8px currentColor);
+  stroke-dasharray: 160;
+  stroke-dashoffset: 160;
+  animation: ttt-draw 0.45s 0.2s ease forwards;
+}
+
+.ttt-strike.win-x line { stroke: var(--mark-x); color: var(--mark-x); }
+.ttt-strike.win-o line { stroke: var(--mark-o); color: var(--mark-o); }
+
+.ttt-cell.is-winning {
+  border-color: currentColor;
+  animation: ttt-pulse 1.1s ease-in-out infinite;
+}
+
+.ttt-cell.is-winning.win-x { color: var(--mark-x); }
+.ttt-cell.is-winning.win-o { color: var(--mark-o); }
+
+@keyframes ttt-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50% { box-shadow: 0 0 20px -2px currentColor; }
+}
+
+/* the losing marks recede so the winning line is what the eye lands on */
+.ttt-cell.is-dimmed .ttt-mark {
+  opacity: 0.32;
+  transition: opacity 0.4s ease;
+}
+
+/* ---- difficulty + modes ---- */
+
+.ttt-difficulty {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.ttt-difficulty-label {
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: 2px;
+}
+
+.ttt-modes {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ttt-rules {
+  margin-top: 20px;
+  border-top: 1px solid var(--panel-border);
+  padding-top: 16px;
+}
+
+.ttt-rules summary {
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+@media (max-width: 480px) {
+  .ttt-board {
+    gap: 8px;
+  }
+
+  .ttt-cell {
+    border-radius: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ttt-mark path,
+  .ttt-mark line,
+  .ttt-mark circle,
+  .ttt-strike line {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .ttt-cell.is-winning {
+    animation: none;
+  }
+
+  .ttt-cell.is-playable:hover {
+    transform: none;
+  }
+}
