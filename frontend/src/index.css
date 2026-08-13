@@ -38,27 +38,42 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* The grid backdrop.
-   It used to sit directly on <body> at a flat 3% opacity everywhere, which
-   was too faint to read as deliberate and just looked like noise. Painting
-   it on a pseudo-element instead means it can be masked: stronger at the top
-   of the viewport, dissolving to nothing further down. Content then sits on
-   clean background rather than competing with texture.
+/* Colour-wash backdrop.
+   Four soft blooms in the four game accent colours - amber, sky, pink and
+   green - so the background carries the same palette the cards do instead of
+   being flat grey. They're heavily blurred and sit under a vignette, which
+   keeps the middle of the screen dark enough for body text to stay readable.
 
-   position: fixed keeps it viewport-relative, so the fade looks identical at
-   any scroll position and the lines never drift against the page. */
+   inset stays at 0 rather than bleeding past the edges: a negative inset here
+   previously widened the document and gave phones a horizontal scrollbar.
+   position: fixed means it never scrolls, so it reads as a lit room rather
+   than a pattern moving behind the content. */
 body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(46% 42% at 10% 6%, rgba(242, 183, 5, 0.46), transparent 62%),
+    radial-gradient(48% 44% at 90% 10%, rgba(56, 189, 248, 0.46), transparent 62%),
+    radial-gradient(52% 46% at 84% 84%, rgba(244, 114, 182, 0.40), transparent 62%),
+    radial-gradient(46% 44% at 12% 90%, rgba(52, 211, 153, 0.36), transparent 62%),
+    radial-gradient(62% 52% at 50% 48%, rgba(129, 140, 248, 0.24), transparent 70%);
+  filter: blur(30px);
+}
+
+/* Vignette over the blooms: darkens the centre and corners so the colour
+   reads as atmosphere at the edges while text sits on near-solid ground. */
+body::after {
   content: '';
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
-  background-size: 28px 28px;
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.45) 42%, transparent 78%);
-  mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.45) 42%, transparent 78%);
+  background:
+    radial-gradient(70% 52% at 50% 42%, rgba(15, 17, 21, 0.80) 28%, transparent 100%),
+    linear-gradient(to bottom, rgba(15, 17, 21, 0.16), rgba(15, 17, 21, 0.58));
 }
 
 button {

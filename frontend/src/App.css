@@ -1,22 +1,121 @@
+/* A real header bar rather than a floating link.
+   It used to be a bare 900px-wide container, which lined up with the hub but
+   sat well to the left of every game page (those are 640px) - the brand
+   looked unmoored. A full-width bar with its own inner container is anchored
+   to the window instead of to whichever page width happens to be underneath,
+   so it reads as deliberate on every screen. */
 .site-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(15, 17, 21, 0.72);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.site-nav-inner {
   max-width: 900px;
   margin: 0 auto;
-  padding: 24px 20px 0;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-family: var(--font-display);
   font-weight: 700;
   color: var(--text);
   text-decoration: none;
-  font-size: 1.05rem;
+  font-size: 1.02rem;
+  letter-spacing: -0.01em;
 }
 
+/* the joystick sits in its own tinted tile so the wordmark has an anchor
+   instead of an emoji floating against the bar */
 .brand-mark {
-  font-size: 1.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  font-size: 1rem;
+  border-radius: 9px;
+  background: linear-gradient(145deg, rgba(242, 183, 5, 0.28), rgba(244, 114, 182, 0.2));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.brand-text {
+  background: linear-gradient(96deg, #f5d67b, #f9a8d4 55%, #7dd3fc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---- profile chip ---- */
+
+.profile-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 5px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  cursor: pointer;
+  max-width: 55vw;
+}
+
+.profile-chip:hover {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+.profile-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #08131c;
+  background: linear-gradient(145deg, #38bdf8, #818cf8);
+}
+
+.profile-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-chip.is-editing {
+  padding: 4px;
+}
+
+.profile-input {
+  width: 130px;
+  padding: 5px 10px;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--accent, #38bdf8);
+  border-radius: 999px;
+}
+
+.profile-input:focus {
+  outline: none;
 }
 
 /* ---- shared page + panel scaffolding, reused by Home and every game ---- */

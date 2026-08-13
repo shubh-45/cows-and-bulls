@@ -1,0 +1,171 @@
+.welcome-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(9, 11, 15, 0.82);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  animation: welcome-fade 0.25s ease;
+}
+
+.welcome-card {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  padding: 34px 30px 26px;
+  text-align: center;
+  border-radius: 18px;
+  border: 1px solid var(--panel-border);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(56, 189, 248, 0.14), transparent 60%),
+    var(--panel);
+  box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.9);
+  animation: welcome-rise 0.3s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+/* the accent hairline across the top, same language as the hub cards */
+.welcome-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #f2b705, #f472b6, #38bdf8, transparent);
+}
+
+.welcome-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 14px;
+  font-size: 1.7rem;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(56, 189, 248, 0.26), rgba(244, 114, 182, 0.16));
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.welcome-eyebrow {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.welcome-title {
+  margin: 6px 0 12px;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  letter-spacing: -0.02em;
+  background: linear-gradient(96deg, #f2b705, #f472b6 42%, #38bdf8 78%, #34d399);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.welcome-copy {
+  margin: 0 0 22px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.welcome-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+
+.welcome-label {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.welcome-input {
+  width: 100%;
+  padding: 13px 15px;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+}
+
+.welcome-input:focus {
+  outline: 2px solid #38bdf8;
+  outline-offset: 1px;
+}
+
+/* Scoped under .welcome-form to outrank .btn-primary in App.css - that file
+   is imported after this one, so a bare .welcome-submit loses the cascade
+   and the button comes out in the default accent instead of this gradient. */
+.welcome-form .welcome-submit {
+  margin-top: 4px;
+  width: 100%;
+  background: linear-gradient(96deg, #38bdf8, #818cf8);
+  color: #08131c;
+}
+
+.welcome-skip {
+  margin-top: 14px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.welcome-skip:hover {
+  color: var(--text);
+}
+
+.welcome-note {
+  margin: 18px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+@keyframes welcome-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes welcome-rise {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 480px) {
+  .welcome-card {
+    padding: 28px 20px 22px;
+  }
+
+  .welcome-title {
+    font-size: 1.7rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-backdrop,
+  .welcome-card {
+    animation: none;
+  }
+}

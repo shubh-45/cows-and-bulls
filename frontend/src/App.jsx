@@ -5,6 +5,9 @@ import HighLowGame from './games/high-low/HighLowGame'
 import MemoryMatchGame from './games/memory-match/MemoryMatchGame'
 import WordleGame from './games/wordle/WordleGame'
 import ReversiGame from './games/reversi/ReversiGame'
+import ProfileChip from './components/ProfileChip'
+import WelcomeGate from './components/WelcomeGate'
+import { ProfileProvider } from './lib/useProfile'
 import './App.css'
 
 // react-router-dom swaps out the <Routes> content based on the URL path,
@@ -19,12 +22,21 @@ export default function App() {
     // hosts like Vercel/Netlify, so refreshing mid-game never 404s. Once you
     // outgrow free static hosting you can switch to BrowserRouter and add
     // your host's SPA rewrite rule.
+    <ProfileProvider>
     <HashRouter>
       <div className="site">
+        {/* Blocks the app until the player has picked a name - once only,
+            then never seen again on this device. */}
+        <WelcomeGate />
+
         <nav className="site-nav">
-          <Link to="/" className="brand">
-            <span className="brand-mark">🕹️</span> The Arcade
-          </Link>
+          <div className="site-nav-inner">
+            <Link to="/" className="brand">
+              <span className="brand-mark" aria-hidden="true">🕹️</span>
+              <span className="brand-text">The Arcade</span>
+            </Link>
+            <ProfileChip />
+          </div>
         </nav>
 
         <Routes>
@@ -37,5 +49,6 @@ export default function App() {
         </Routes>
       </div>
     </HashRouter>
+    </ProfileProvider>
   )
 }
