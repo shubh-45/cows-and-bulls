@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { isValidGuess, randomWord } from './words'
+import Celebration from '../../components/Celebration'
 import StatsLine from '../../components/StatsLine'
 import { useGameResult } from '../../lib/useGameResult'
 import './Wordle.css'
@@ -200,6 +201,8 @@ export default function WordleGame() {
 
       <main className="game-panel">
         {status === 'won' && (
+          <>
+          <Celebration outcome="win" />
           <div className={`reward-banner ${tier.className}`}>
             <div className="reward-emoji">{tier.emoji}</div>
             <h2>Solved in {guesses.length} guess{guesses.length !== 1 ? 'es' : ''}!</h2>
@@ -208,15 +211,19 @@ export default function WordleGame() {
             <StatsLine gameId="wordle" formatBest={(n) => `${n} guess${n === 1 ? '' : 'es'}`} />
             <button className="btn btn-primary" onClick={startNewGame}>Play Again</button>
           </div>
+          </>
         )}
 
         {status === 'lost' && (
+          <>
+          <Celebration outcome="lose" />
           <div className="reward-banner tier-participant">
             <div className="reward-emoji">😔</div>
             <h2>Out of guesses</h2>
             <p className="reward-secret">The word was <strong>{answer}</strong></p>
             <button className="btn btn-primary" onClick={startNewGame}>Try Another</button>
           </div>
+          </>
         )}
 
         {/* aria-live announces a rejected guess to a screen reader. The slot

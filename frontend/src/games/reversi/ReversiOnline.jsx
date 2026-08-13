@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Celebration from '../../components/Celebration'
 import { createRoom, fetchRoom, forfeitRoom, joinRoom, sendMove, wakeBackend } from '../../lib/roomsApi'
 import { useProfile } from '../../lib/useProfile'
 import {
@@ -202,9 +203,15 @@ export default function ReversiOnline({ onExit }) {
     }
   }
 
+  const outcome = myDiscs > theirDiscs ? 'win' : myDiscs < theirDiscs ? 'lose' : 'draw'
+  const RESULT = {
+    win: { emoji: '🏆', title: 'You win!', tier: 'tier-gold' },
+    lose: { emoji: '🫡', title: `${opponentName || 'Your friend'} wins`, tier: 'tier-silver' },
+    draw: { emoji: '🤝', title: "It's a draw", tier: 'tier-participant' },
+  }[outcome]
+
   let statusLine
   if (waiting) statusLine = 'Waiting for your friend to join…'
-  else if (finished) statusLine = myDiscs > theirDiscs ? 'You win!' : myDiscs < theirDiscs ? `${opponentName || 'Your friend'} wins` : "It's a draw"
   else if (myTurn) statusLine = 'Your move'
   else statusLine = `Waiting for ${opponentName || 'your friend'}…`
 
@@ -239,7 +246,23 @@ export default function ReversiOnline({ onExit }) {
         </span>
       </div>
 
-      <p className="reversi-turn" aria-live="polite">{statusLine}</p>
+      {finished ? (
+        <>
+          <Celebration outcome={outcome} />
+          <div className={`reward-banner ${RESULT.tier}`} aria-live="polite">
+            <div className="reward-emoji">{RESULT.emoji}</div>
+            <h2>{RESULT.title}</h2>
+            <p className="reward-secret">
+              Final score {myDiscs} &ndash; {theirDiscs}
+            </p>
+            <button className="btn btn-primary" onClick={handleLeave}>
+              Back to lobby
+            </button>
+          </div>
+        </>
+      ) : (
+        <p className="reversi-turn" aria-live="polite">{statusLine}</p>
+      )}
       {error && <p className="online-error">{error}</p>}
 
       <div className="reversi-board" role="grid" aria-label="Reversi board">

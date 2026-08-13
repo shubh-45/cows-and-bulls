@@ -13,6 +13,7 @@ import {
   nextTurn,
 } from './logic'
 import ReversiOnline from './ReversiOnline'
+import Celebration from '../../components/Celebration'
 import StatsLine from '../../components/StatsLine'
 import { useGameResult } from '../../lib/useGameResult'
 import './Reversi.css'
@@ -150,6 +151,8 @@ export default function ReversiGame() {
         </div>
 
         {gameOver ? (
+          <>
+          <Celebration outcome={winner === 'black' ? 'win' : winner === 'white' ? 'lose' : 'draw'} />
           <div className={`reward-banner ${resultTier}`}>
             <div className="reward-emoji">{resultEmoji}</div>
             <h2>{resultTitle}</h2>
@@ -157,6 +160,7 @@ export default function ReversiGame() {
             {vsComputer && <StatsLine gameId="reversi" formatBest={(n) => `${n} discs`} />}
             <button className="btn btn-primary" onClick={() => startNewGame()}>Play Again</button>
           </div>
+          </>
         ) : (
           <p className="reversi-turn" aria-live="polite">
             {message && <span className="reversi-pass">{message} </span>}
