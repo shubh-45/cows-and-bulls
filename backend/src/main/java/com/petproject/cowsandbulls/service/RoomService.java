@@ -30,10 +30,18 @@ public class RoomService {
     private static final int CODE_LENGTH = 4;
     private static final int MAX_CODE_ATTEMPTS = 40;
 
-    /** Board sizes the room API knows about, keyed by game type. */
+    /**
+     * Board sizes the room API knows about, keyed by game type.
+     *
+     * <p>Snake is here only so a room can be created and the two browsers can
+     * find each other. It never uses the move endpoints: once the peers are
+     * connected the whole game runs between them, and the server hears nothing
+     * until the result is reported.
+     */
     private static final Map<String, Integer> BOARD_SIZES = Map.of(
             "reversi", 8,
-            "tic-tac-toe", 3
+            "tic-tac-toe", 3,
+            "snake", 15
     );
 
     private final Map<String, Room> rooms = new ConcurrentHashMap<>();
@@ -189,6 +197,55 @@ public class RoomService {
         room.abandon(playerId);
         log.info("Room {}: {} left", code, room.getAbandonedByRole());
         return room;
+    }
+
+    /**
+     * Ends a match that was played outside the move endpoints.
+     *
+     * <p>Snake runs peer to peer, so the server never sees the moves - it is
+     * simply told the outcome so the series score stays correct. Safe for both
+     * players to call: finishMatch ignores a match that is already over, so a
+     * result cannot be counted twice.
+     */
+    public Room reportResult(String code, String playerId, String winnerRole, String note) {
+        Room room = require(code);
+        if (!room.hasPlayer(playerId)) {
+            throw new InvalidRoomActionException("You are not a player in this room.");
+        }
+        room.recordSeen(playerId);
+        room.finishMatch(normalizeWinner(winnerRole), note, false);
+        return room;
+    }
+
+    /**
+     * Relays one WebRTC handshake message. The server never inspects the
+     * payload - it is the browser's own SDP or ICE JSON. This is the only part
+     * of a Snake duel the backend touches; once the peers connect directly it
+     * sees nothing until the result is reported.
+     */
+    public Room postSignal(String code, String playerId, String kind, String payload) {
+        Room room = require(code);
+        String role = room.roleOf(playerId);
+        if (role == null) {
+            throw new InvalidRoomActionException("You are not a player in this room.");
+        }
+        room.recordSeen(playerId);
+        try {
+            room.addSignal(role, kind, payload);
+        } catch (IllegalStateException ex) {
+            throw new InvalidRoomActionException(ex.getMessage());
+        }
+        return room;
+    }
+
+    public java.util.List<Room.Signal> readSignals(String code, String playerId, int since) {
+        Room room = require(code);
+        String role = room.roleOf(playerId);
+        if (role == null) {
+            throw new InvalidRoomActionException("You are not a player in this room.");
+        }
+        room.recordSeen(playerId);
+        return room.signalsFor(role, since);
     }
 
     @Scheduled(fixedDelayString = "${app.room.cleanup-interval-ms:300000}")

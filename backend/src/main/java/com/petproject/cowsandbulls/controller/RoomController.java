@@ -4,6 +4,8 @@ import com.petproject.cowsandbulls.dto.CreateRoomRequest;
 import com.petproject.cowsandbulls.dto.JoinRoomRequest;
 import com.petproject.cowsandbulls.dto.RoomMoveRequest;
 import com.petproject.cowsandbulls.dto.RoomStateResponse;
+import com.petproject.cowsandbulls.dto.SignalRequest;
+import com.petproject.cowsandbulls.dto.SignalsResponse;
 import com.petproject.cowsandbulls.service.RoomService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -70,6 +72,34 @@ public class RoomController {
     @PostMapping("/{code}/rematch")
     public RoomStateResponse rematch(@PathVariable String code, @RequestParam String playerId) {
         return RoomStateResponse.of(roomService.requestRematch(code, playerId), playerId);
+    }
+
+    // POST /api/rooms/{code}/result -> report the outcome of a match played
+    // peer-to-peer, so the series score stays correct
+    @PostMapping("/{code}/result")
+    public RoomStateResponse reportResult(
+            @PathVariable String code,
+            @RequestParam String playerId,
+            @RequestParam String winnerRole,
+            @RequestParam(required = false) String note) {
+        return RoomStateResponse.of(roomService.reportResult(code, playerId, winnerRole, note), playerId);
+    }
+
+    // POST /api/rooms/{code}/signals -> relay one WebRTC handshake message
+    @PostMapping("/{code}/signals")
+    public SignalsResponse postSignal(@PathVariable String code, @Valid @RequestBody SignalRequest request) {
+        roomService.postSignal(code, request.playerId(), request.kind(), request.payload());
+        return new SignalsResponse(0, java.util.List.of());
+    }
+
+    // GET /api/rooms/{code}/signals -> whatever the other player has left,
+    // after the caller's cursor
+    @GetMapping("/{code}/signals")
+    public SignalsResponse readSignals(
+            @PathVariable String code,
+            @RequestParam String playerId,
+            @RequestParam(defaultValue = "0") int since) {
+        return SignalsResponse.of(roomService.readSignals(code, playerId, since), since);
     }
 
     // POST /api/rooms/{code}/leave -> leave for good; walking out mid-match

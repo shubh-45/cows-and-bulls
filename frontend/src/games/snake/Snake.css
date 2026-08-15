@@ -358,3 +358,32 @@
     border-color: color-mix(in srgb, var(--danger) 70%, transparent);
   }
 }
+
+/* ---- duel ---- */
+
+.snake-modes {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.snake-countdown {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 4rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.snake-overlay.is-stalled {
+  background: rgba(13, 17, 23, 0.72);
+}
+
+/* The duel pad uses plain glyphs rather than the drawn arrows, because it
+   sits under a live board and wants to be as compact as possible. */
+.snake-pad.is-duel .pad-btn {
+  font-size: 1.1rem;
+  padding: 12px;
+}

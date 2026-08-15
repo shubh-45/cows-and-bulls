@@ -59,6 +59,16 @@ export function leaveRoom(code, playerId) {
   }).then(handle)
 }
 
+// Reports the outcome of a match played peer-to-peer, so the series score
+// stays correct even though the server never saw the game. Safe for both
+// players to call - the server ignores a match that is already finished.
+export function reportResult(code, playerId, winnerRole, note) {
+  const query = new URLSearchParams({ playerId, winnerRole, note: note ?? '' })
+  return fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(code)}/result?${query}`, {
+    method: 'POST',
+  }).then(handle)
+}
+
 // The free Render instance sleeps after ~15 minutes idle and takes 30-60s to
 // wake. Firing this when the lobby opens means the wake-up overlaps with the
 // player reading the screen, instead of stalling their first click.

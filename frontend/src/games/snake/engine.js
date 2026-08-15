@@ -88,12 +88,16 @@ function makeSnake(id, x, y, dir) {
  * @param {number} playerCount 1 for solo, 2 for a duel
  */
 export function createState(seed, playerCount = 1) {
+  // In a duel the two snakes start on different rows, not facing each other
+  // down the same one. Head-on both ends a match in about five ticks, which
+  // with the input delay is barely enough time to react - the opening was
+  // decided before either player could do anything about it.
   const snakes =
     playerCount === 1
       ? [makeSnake(0, 2, Math.floor(GRID_HEIGHT / 2), 'right')]
       : [
-          makeSnake(0, 2, Math.floor(GRID_HEIGHT / 2), 'right'),
-          makeSnake(1, GRID_WIDTH - 3, Math.floor(GRID_HEIGHT / 2), 'left'),
+          makeSnake(0, 3, 3, 'right'),
+          makeSnake(1, GRID_WIDTH - 4, GRID_HEIGHT - 4, 'left'),
         ]
 
   const state = {

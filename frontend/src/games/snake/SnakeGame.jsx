@@ -4,6 +4,7 @@ import Celebration from '../../components/Celebration'
 import StatsLine from '../../components/StatsLine'
 import { useGameResult } from '../../lib/useGameResult'
 import SnakeBoard, { steerFrom } from './Board'
+import SnakeDuel from './SnakeDuel'
 import { DEATH, createState, step, tickInterval } from './engine'
 import './Snake.css'
 
@@ -59,6 +60,7 @@ export default function SnakeGame() {
   const [state, setState] = useState(() => createState(randomSeed(), 1))
   const [started, setStarted] = useState(false)
   const [paused, setPaused] = useState(false)
+  const [duel, setDuel] = useState(false)
 
   // Inputs are buffered rather than applied straight to state. A player can
   // easily press two directions inside one tick; queueing them means the
@@ -180,6 +182,10 @@ export default function SnakeGame() {
       </header>
 
       <main className="game-panel">
+        {duel ? (
+          <SnakeDuel onExit={() => setDuel(false)} />
+        ) : (
+        <>
         <div className="snake-status">
           <span className="snake-score">
             <span className="snake-score-label">Score</span>
@@ -261,6 +267,13 @@ export default function SnakeGame() {
             <DirArrow direction="down" />
           </button>
         </div>
+
+        <div className="snake-modes">
+          <button className="mode-btn is-active">Solo</button>
+          <button className="mode-btn" onClick={() => setDuel(true)}>Duel a friend</button>
+        </div>
+        </>
+        )}
 
         <details className="snake-rules">
           <summary>How to play</summary>

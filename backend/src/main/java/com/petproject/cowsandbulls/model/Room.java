@@ -31,6 +31,17 @@ public class Room {
 
     public record Move(int index, String playerId, int seq) {}
 
+    /**
+     * One WebRTC handshake message on its way between the two players.
+     *
+     * <p>The server is a dumb relay here: it never parses these, it just hands
+     * each player whatever the other one left. Once the browsers are connected
+     * directly the relay goes quiet for the rest of the match, which is the
+     * whole point - a real-time game cannot afford a server in the loop, and a
+     * free instance cannot afford to be in it.
+     */
+    public record Signal(int seq, String fromRole, String kind, String payload) {}
+
     public enum Status { WAITING, PLAYING, FINISHED, ABANDONED }
 
     public static final String HOST = "host";
@@ -82,6 +93,11 @@ public class Room {
 
     private volatile String abandonedByRole;
 
+    // WebRTC handshake traffic. Capped because ICE can produce a lot of
+    // candidates and a room must not be able to grow without limit.
+    private static final int MAX_SIGNALS = 120;
+    private final List<Signal> signals = new ArrayList<>();
+
     public Room(String code, String gameType, int boardSize, String hostId, String hostName) {
         this.code = code;
         this.gameType = gameType;
@@ -117,6 +133,32 @@ public class Room {
     public String getAbandonedByRole() { return abandonedByRole; }
 
     public List<Move> getMoves() { return List.copyOf(moves); }
+
+    /* ---- webrtc signalling ----------------------------------------------- */
+
+    public synchronized Signal addSignal(String fromRole, String kind, String payload) {
+        if (signals.size() >= MAX_SIGNALS) {
+            throw new IllegalStateException("Too many handshake messages for one room.");
+        }
+        Signal signal = new Signal(signals.size() + 1, fromRole, kind, payload);
+        signals.add(signal);
+        lastActivityAt = Instant.now();
+        return signal;
+    }
+
+    /** Everything the *other* player has posted after `since`. */
+    public synchronized List<Signal> signalsFor(String viewerRole, int since) {
+        return signals.stream()
+                .filter(signal -> signal.seq() > since)
+                .filter(signal -> !signal.fromRole().equals(viewerRole))
+                .toList();
+    }
+
+    /** A rematch reuses the open data channel, so the handshake is only reset
+        when someone genuinely needs to negotiate again. */
+    public synchronized void clearSignals() {
+        signals.clear();
+    }
 
     public boolean isFull() { return guestId != null; }
 
