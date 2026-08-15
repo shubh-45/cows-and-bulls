@@ -276,7 +276,11 @@ export function endOnTimeout(state) {
  * about how fast time is passing.
  */
 export function tickInterval(state, { ramp = true } = {}) {
-  if (!ramp) return 100
+  if (!ramp) return 130
   const length = state.snakes[0]?.body.length ?? 3
-  return Math.max(70, 160 - (length - 3) * 5)
+  // Starts calmer than it used to and ramps more gently. A faster tick also
+  // means less waiting for an input to be applied, so slowing the game down
+  // trades some responsiveness away - which is why the head now acknowledges
+  // a turn on the frame you make it, rather than only when the body moves.
+  return Math.max(100, 200 - (length - 3) * 4)
 }

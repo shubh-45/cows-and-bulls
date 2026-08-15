@@ -68,9 +68,13 @@ export default function SnakeGame() {
   const stateRef = useRef(state)
   stateRef.current = state
 
+  // The queue itself is a ref, so it can't drive rendering. This mirrors the
+  // direction most recently accepted purely so the head can face it right
+  // away - the body still doesn't move until the next tick.
+  const [pendingDir, setPendingDir] = useState(null)
+
   const snake = state.snakes[0]
   const over = state.status === 'over'
-  const tickMs = tickInterval(state)
 
   const steer = useCallback((steerOrDir) => {
     const current = stateRef.current
@@ -79,7 +83,10 @@ export default function SnakeGame() {
       ? inputQueue.current[inputQueue.current.length - 1]
       : current.snakes[0].dir
     const next = steerFrom(from, steerOrDir)
-    if (next !== from && inputQueue.current.length < 2) inputQueue.current.push(next)
+    if (next !== from && inputQueue.current.length < 2) {
+      inputQueue.current.push(next)
+      setPendingDir(next)
+    }
     setStarted(true)
   }, [])
 
@@ -109,6 +116,9 @@ export default function SnakeGame() {
       while (accumulator >= interval) {
         accumulator -= interval
         const dir = inputQueue.current.shift()
+        // Once consumed, the head goes back to following the body unless
+        // another input is already waiting behind it.
+        if (dir) setPendingDir(inputQueue.current[0] ?? null)
         setState((current) => step(current, dir ? { 0: dir } : {}))
       }
       frame = requestAnimationFrame(loop)
@@ -146,6 +156,7 @@ export default function SnakeGame() {
 
   function restart() {
     inputQueue.current = []
+    setPendingDir(null)
     setState(createState(randomSeed(), 1))
     setStarted(false)
     setPaused(false)
@@ -184,7 +195,11 @@ export default function SnakeGame() {
         {over && <Celebration outcome={snake.score > 0 ? 'win' : 'lose'} />}
 
         <div className="snake-stage">
-          <SnakeBoard state={state} tickMs={tickMs} onSteer={over ? null : steer} />
+          <SnakeBoard
+            state={state}
+            onSteer={over ? null : steer}
+            facing={pendingDir}
+          />
 
           {/* The result sits *on* the board rather than above it. A banner
               above pushed the board off the bottom of a phone screen, so you
