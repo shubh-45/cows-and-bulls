@@ -82,33 +82,6 @@
   background: var(--panel-border);
 }
 
-/* ---- sections ---- */
-
-.hub-section {
-  margin-top: 36px;
-}
-
-.hub-section-title {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  font-family: var(--font-display);
-  font-size: 0.8rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin: 0 0 16px;
-  font-weight: 600;
-}
-
-/* the rule trailing each section heading */
-.hub-section-title::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, var(--panel-border), transparent);
-}
-
 /* ---- cards ---- */
 
 .game-grid {
@@ -204,48 +177,11 @@
   transform: translateX(4px);
 }
 
-/* ---- coming-soon cards ---- */
-
-.game-card-disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.game-card-disabled:hover {
-  transform: none;
-  box-shadow: none;
-  border-color: var(--panel-border);
-}
-
-/* margin-top:auto bottom-aligns the pill the way .card-cta is aligned on
-   live cards; the gap above it comes from the tagline so the pill's own
-   padding stays purely visual. */
-.badge-soon {
-  align-self: flex-start;
-  margin-top: auto;
-  font-family: var(--font-display);
-  font-size: 0.65rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-  border: 1px solid var(--panel-border);
-  border-radius: 999px;
-  padding: 3px 10px;
-}
-
-.game-card-disabled .card-tagline {
-  margin-bottom: 16px;
-}
-
 /* Cards stay full-width single-column on phones. Nothing is hidden here -
    only spacing and type scale change. */
 @media (max-width: 480px) {
   .hub-hero {
     padding: 16px 0 32px;
-  }
-
-  .hub-section {
-    margin-top: 28px;
   }
 
   .game-grid {

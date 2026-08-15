@@ -1,11 +1,9 @@
-// One object per game. `status: 'live'` makes the card clickable and links
-// to `path`. `status: 'coming-soon'` renders it greyed out with a badge -
-// a easy way to show your roadmap on the hub itself. `accent` becomes that
-// game's signature color, both on its card and inside the game screen.
+// One object per game. `accent` becomes that game's signature color, both on
+// its card and inside the game screen.
 //
-// Order matters: this array is the hub grid, top to bottom. Live games are
-// listed most-engaging first, so the meatier games lead and the simplest
-// one (Higher or Lower) sits last among them.
+// Order matters: this array is the hub grid, top to bottom - listed
+// most-engaging first, so the meatier games lead and the simplest one
+// (Higher or Lower) sits last.
 export const GAMES = [
   {
     id: 'cows-and-bulls',
@@ -60,21 +58,5 @@ export const GAMES = [
     accent: '#4ade80',
     path: '/games/high-low',
     status: 'live',
-  },
-  {
-    id: 'hangman',
-    title: 'Hangman',
-    tagline: 'Guess the word one letter at a time.',
-    icon: '📝',
-    accent: '#fb923c',
-    status: 'coming-soon',
-  },
-  {
-    id: 'quiz-arena',
-    title: 'Quiz Arena',
-    tagline: 'Multi-category trivia with a running score.',
-    icon: '❓',
-    accent: '#818cf8',
-    status: 'coming-soon',
   },
 ]
