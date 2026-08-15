@@ -15,7 +15,9 @@ import { createState, step } from './engine.js'
 // side. Too small and the game stalls waiting; too large and steering feels
 // remote.
 
-export const TICK_MS = 150
+// Slower than it was: at 150ms the duel felt frantic, and unlike solo there
+// is no ramp - a shared clock has to stay constant on both machines.
+export const TICK_MS = 190
 export const INPUT_DELAY = 2
 
 /** Seat numbers must match on both machines, because the engine resolves

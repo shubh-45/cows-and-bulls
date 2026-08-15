@@ -28,6 +28,12 @@ export default function SnakeDuel({ onExit }) {
   const [countdown, setCountdown] = useState(null)
   const [stalled, setStalled] = useState(false)
   const [reported, setReported] = useState(false)
+  // Bumping this tears the peer down and negotiates again, which is the only
+  // useful thing to offer someone whose connection didn't come up.
+  const [attempt, setAttempt] = useState(0)
+  // Mirrors the direction just accepted so the head can face it immediately,
+  // exactly as the solo game does. Without it the input delay reads as lag.
+  const [facing, setFacing] = useState(null)
 
   const peerRef = useRef(null)
   const lockstepRef = useRef(null)
@@ -58,7 +64,7 @@ export default function SnakeDuel({ onExit }) {
       peer.close()
       peerRef.current = null
     }
-  }, [room?.opponentPresent, room?.code, playerId, isHost])
+  }, [room?.opponentPresent, room?.code, playerId, isHost, attempt])
 
   /* ---- match lifecycle ---- */
 
@@ -131,6 +137,7 @@ export default function SnakeDuel({ onExit }) {
     const next = steerFrom(current, steerOrDir)
     if (next !== current) {
       steerRef.current = next
+      setFacing(next)
       lockstep.steer(next)
     }
   }, [])
@@ -170,7 +177,10 @@ export default function SnakeDuel({ onExit }) {
   useEffect(() => {
     if (game && lockstepRef.current) {
       const seat = lockstepRef.current.localSeat
-      if (game.snakes[seat]?.dir === steerRef.current) steerRef.current = null
+      if (game.snakes[seat]?.dir === steerRef.current) {
+        steerRef.current = null
+        setFacing(null)
+      }
     }
   }, [game])
 
@@ -239,11 +249,26 @@ export default function SnakeDuel({ onExit }) {
       )}
 
       {room.opponentPresent && connection !== 'connected' && !abandoned && (
-        <p className={connection === 'failed' ? 'online-error' : 'online-share'}>
-          {connection === 'failed'
-            ? "Couldn't open a direct connection. Some networks block it — try again, or play on the same WiFi."
-            : 'Connecting directly to your friend…'}
-        </p>
+        <div className={connection === 'failed' ? 'online-error' : 'online-share'}>
+          {connection === 'failed' ? (
+            <>
+              <p style={{ margin: 0 }}>
+                Couldn't open a direct connection. Both of you need to be here at
+                the same time, and some networks block it &mdash; the same WiFi
+                works best.
+              </p>
+              <button
+                className="btn btn-primary"
+                style={{ marginTop: 12 }}
+                onClick={() => setAttempt((n) => n + 1)}
+              >
+                Try again
+              </button>
+            </>
+          ) : (
+            <p style={{ margin: 0 }}>Connecting directly to your friend…</p>
+          )}
+        </div>
       )}
 
       {error && <p className="online-error">{error}</p>}
@@ -270,6 +295,7 @@ export default function SnakeDuel({ onExit }) {
           <SnakeBoard
             state={game}
             onSteer={over || countdown !== null ? null : steer}
+            facing={facing}
             palette={seat === 0 ? ['p1', 'p2'] : ['p2', 'p1']}
           />
 

@@ -17,15 +17,40 @@ const ICE_SERVERS = [
 ]
 
 const SIGNAL_POLL_MS = 700
-/** Give up and fall back rather than leaving someone on a spinner forever. */
-const CONNECT_TIMEOUT_MS = 20000
+/**
+ * Generous, because the backend may be cold. A free instance takes 30-60s to
+ * wake, and giving up before it has even answered would report a network
+ * failure for what is really just a sleeping server.
+ */
+const CONNECT_TIMEOUT_MS = 60000
+const POST_ATTEMPTS = 5
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/**
+ * Posting a handshake message, with retries.
+ *
+ * The first version fired once and ignored the result. A single failed POST -
+ * which is exactly what a cold-starting instance produces - meant the offer
+ * never arrived, so the other side waited for something that was never coming
+ * and the connection failed permanently. The handshake is only a handful of
+ * messages, so retrying them is cheap and worth far more than failing fast.
+ */
 async function postSignal(code, playerId, kind, payload) {
-  await fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(code)}/signals`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ playerId, kind, payload: JSON.stringify(payload) }),
-  })
+  for (let attempt = 0; attempt < POST_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(code)}/signals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId, kind, payload: JSON.stringify(payload) }),
+      })
+      if (response.ok) return true
+    } catch {
+      /* fall through to the retry */
+    }
+    await sleep(800 * (attempt + 1))
+  }
+  return false
 }
 
 async function readSignals(code, playerId, since) {
@@ -156,7 +181,11 @@ export function createPeer({ code, playerId, isHost, onMessage, onStatus }) {
       attachChannel(pc.createDataChannel('snake', { ordered: true }))
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
-      await postSignal(code, playerId, 'offer', offer)
+      const sent = await postSignal(code, playerId, 'offer', offer)
+      if (!sent) {
+        report('failed')
+        return
+      }
     }
     poll()
 
