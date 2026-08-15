@@ -78,6 +78,9 @@ public class RoomService {
         if (playerId != null && !room.hasPlayer(playerId)) {
             throw new InvalidRoomActionException("You are not a player in this room.");
         }
+        // Presence rides on the poll clients already make, so an opponent who
+        // closes their tab is detected without a heartbeat endpoint.
+        if (playerId != null) room.recordSeen(playerId);
         return room;
     }
 
@@ -87,7 +90,7 @@ public class RoomService {
      * is their turn, the square exists and is free.
      */
     public Room applyMove(String code, String playerId, int index, String nextPlayerId,
-                          boolean gameOver, String resultNote) {
+                          boolean gameOver, String winnerRole, String resultNote) {
         Room room = require(code);
 
         if (!room.hasPlayer(playerId)) {
@@ -97,7 +100,10 @@ public class RoomService {
             throw new InvalidRoomActionException("Waiting for another player to join.");
         }
         if (room.getStatus() == Room.Status.FINISHED) {
-            throw new InvalidRoomActionException("This game has already finished.");
+            throw new InvalidRoomActionException("This match has already finished.");
+        }
+        if (room.getStatus() == Room.Status.ABANDONED) {
+            throw new InvalidRoomActionException("Your opponent has left the room.");
         }
         if (!playerId.equals(room.getCurrentPlayerId())) {
             throw new InvalidRoomActionException("It is not your turn.");
@@ -113,6 +119,11 @@ public class RoomService {
             throw new InvalidRoomActionException("That square has already been played.");
         }
 
+        // A move is the strongest possible proof someone is still there, so it
+        // counts towards presence as well as the poll does. Without this a
+        // player who is actively moving can flicker "offline" to their
+        // opponent whenever a poll is slow.
+        room.recordSeen(playerId);
         room.addMove(index, playerId);
 
         // Trust the client only for the parts that need the rules, and only
@@ -123,19 +134,60 @@ public class RoomService {
         room.setCurrentPlayerId(next);
 
         if (gameOver) {
-            room.finish(resultNote);
+            // Only the client knows the rules, so it reports who won - but the
+            // value is normalised here so a bad one cannot corrupt the score.
+            room.finishMatch(normalizeWinner(winnerRole), resultNote, false);
         }
         return room;
     }
 
-    public Room forfeit(String code, String playerId) {
+    /** Anything that is not a recognised role is scored as a draw. */
+    private String normalizeWinner(String winnerRole) {
+        if (Room.HOST.equals(winnerRole) || Room.GUEST.equals(winnerRole)) return winnerRole;
+        return Room.DRAW;
+    }
+
+    /**
+     * Offers a rematch. The board only resets once BOTH players have asked,
+     * so nobody has the position wiped from under them while they are still
+     * looking at how they lost.
+     */
+    public Room requestRematch(String code, String playerId) {
         Room room = require(code);
         if (!room.hasPlayer(playerId)) {
             throw new InvalidRoomActionException("You are not a player in this room.");
         }
-        if (room.getStatus() != Room.Status.FINISHED) {
-            room.finish("A player left the game.");
+        if (room.getStatus() == Room.Status.ABANDONED) {
+            throw new InvalidRoomActionException("Your opponent has left the room.");
         }
+        if (room.getStatus() != Room.Status.FINISHED) {
+            throw new InvalidRoomActionException("Finish the current match first.");
+        }
+        if (!room.isFull()) {
+            throw new InvalidRoomActionException("Waiting for another player to join.");
+        }
+
+        room.recordSeen(playerId);
+        if (room.voteRematch(playerId)) {
+            room.startRematch();
+            log.info("Room {}: rematch accepted, starting match {}", room.getCode(), room.getMatchNumber());
+        } else {
+            room.touch();
+        }
+        return room;
+    }
+
+    /**
+     * Leaving the room for good. Walking out of a match in progress awards it
+     * to the opponent, so quitting a losing position does not dodge the score.
+     */
+    public Room leave(String code, String playerId) {
+        Room room = require(code);
+        if (!room.hasPlayer(playerId)) {
+            throw new InvalidRoomActionException("You are not a player in this room.");
+        }
+        room.abandon(playerId);
+        log.info("Room {}: {} left", code, room.getAbandonedByRole());
         return room;
     }
 

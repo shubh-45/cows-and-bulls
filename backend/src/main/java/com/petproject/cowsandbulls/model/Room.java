@@ -1,37 +1,44 @@
 package com.petproject.cowsandbulls.model;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A two-player room for friends-only online play.
  *
- * <p>Design notes worth knowing before changing this:
+ * <p>A room outlives a single match. Players stay in it and play a series:
+ * each finished match is scored, either side can offer a rematch, and the
+ * board resets without anyone needing a fresh code.
  *
  * <p><b>The room stores moves, not a board.</b> Both clients replay the same
  * ordered move list through the same pure rules module, so they cannot drift
- * apart, and the server does not need a copy of every game's rules to stay
- * useful. That keeps this class game-agnostic: Reversi and Tic-Tac-Toe share
- * it unchanged.
+ * apart and the server does not need a copy of the rules. That keeps this
+ * class game-agnostic: Reversi and Tic-Tac-Toe share it unchanged.
  *
- * <p><b>What the server does enforce</b> is everything that does not need the
- * rules: who is in the room, whose turn it is, that a square is on the board,
- * and that it has not already been played. That last check is sound for both
- * games because in Reversi a placed disc never leaves the board and in
- * Tic-Tac-Toe a mark never moves. Rules that need full board state - Reversi's
- * "a move must outflank" - stay on the client. A player could bypass those
- * with a hand-crafted request, which is an acceptable trade for a mode you
- * only enter by sharing a code with a friend.
+ * <p><b>What the server enforces</b> is everything that needs no rules: who is
+ * in the room, whose turn it is, that a square is on the board and has not
+ * already been played. Rules that need board state - Reversi's "a move must
+ * outflank", who actually won - stay on the client.
  *
  * <p><b>version</b> increments on every change so clients can poll cheaply and
- * ignore responses that carry nothing new.
+ * ignore responses carrying nothing new.
  */
 public class Room {
 
     public record Move(int index, String playerId, int seq) {}
 
-    public enum Status { WAITING, PLAYING, FINISHED }
+    public enum Status { WAITING, PLAYING, FINISHED, ABANDONED }
+
+    public static final String HOST = "host";
+    public static final String GUEST = "guest";
+    public static final String DRAW = "draw";
+
+    /** How long since a player's last poll before we call them disconnected. */
+    private static final Duration PRESENCE_TIMEOUT = Duration.ofSeconds(12);
 
     private final String code;
     private final String gameType;
@@ -47,10 +54,33 @@ public class Room {
     private final List<Move> moves = new ArrayList<>();
     private volatile Status status = Status.WAITING;
     private volatile int version = 1;
-    // Host always moves first; whoever is "current" flips as moves land.
     private volatile String currentPlayerId;
-    // Set when a client reports the game over, or when someone forfeits.
     private volatile String resultNote;
+
+    // Both games give the player who moves first an advantage, so the start
+    // alternates between matches - otherwise a five-match series is lopsided
+    // before anyone touches the board. Clients derive their colour/mark from
+    // this rather than from host/guest, so swapping the start swaps the sides.
+    private volatile String startingRole = HOST;
+    private volatile int matchNumber = 1;
+
+    private volatile int hostWins = 0;
+    private volatile int guestWins = 0;
+    private volatile int draws = 0;
+    /** Who won the match that just finished: HOST, GUEST or DRAW. */
+    private volatile String lastWinnerRole;
+    /** True when the last match ended because someone walked away. */
+    private volatile boolean lastMatchForfeited;
+
+    private final Set<String> rematchVotes = ConcurrentHashMap.newKeySet();
+
+    // Presence rides on the existing poll: every state fetch stamps the
+    // caller's clock, so an opponent who closes their tab goes quiet within a
+    // few seconds without needing a heartbeat endpoint of its own.
+    private volatile Instant hostSeenAt;
+    private volatile Instant guestSeenAt;
+
+    private volatile String abandonedByRole;
 
     public Room(String code, String gameType, int boardSize, String hostId, String hostName) {
         this.code = code;
@@ -61,6 +91,7 @@ public class Room {
         this.currentPlayerId = hostId;
         this.createdAt = Instant.now();
         this.lastActivityAt = this.createdAt;
+        this.hostSeenAt = this.createdAt;
     }
 
     public String getCode() { return code; }
@@ -76,6 +107,14 @@ public class Room {
     public int getVersion() { return version; }
     public String getCurrentPlayerId() { return currentPlayerId; }
     public String getResultNote() { return resultNote; }
+    public String getStartingRole() { return startingRole; }
+    public int getMatchNumber() { return matchNumber; }
+    public int getHostWins() { return hostWins; }
+    public int getGuestWins() { return guestWins; }
+    public int getDraws() { return draws; }
+    public String getLastWinnerRole() { return lastWinnerRole; }
+    public boolean isLastMatchForfeited() { return lastMatchForfeited; }
+    public String getAbandonedByRole() { return abandonedByRole; }
 
     public List<Move> getMoves() { return List.copyOf(moves); }
 
@@ -83,6 +122,22 @@ public class Room {
 
     public boolean hasPlayer(String playerId) {
         return hostId.equals(playerId) || (guestId != null && guestId.equals(playerId));
+    }
+
+    public String roleOf(String playerId) {
+        if (hostId.equals(playerId)) return HOST;
+        if (guestId != null && guestId.equals(playerId)) return GUEST;
+        return null;
+    }
+
+    public String idOfRole(String role) {
+        return HOST.equals(role) ? hostId : guestId;
+    }
+
+    public String opponentOf(String playerId) {
+        if (hostId.equals(playerId)) return guestId;
+        if (guestId != null && guestId.equals(playerId)) return hostId;
+        return null;
     }
 
     public boolean isSquareTaken(int index) {
@@ -94,9 +149,29 @@ public class Room {
         this.version++;
     }
 
+    /* ---- presence -------------------------------------------------------- */
+
+    public void recordSeen(String playerId) {
+        Instant now = Instant.now();
+        if (hostId.equals(playerId)) hostSeenAt = now;
+        else if (guestId != null && guestId.equals(playerId)) guestSeenAt = now;
+        // Deliberately does not touch(): a poll is not a change, and bumping
+        // the version on every poll would make every client re-render forever.
+        this.lastActivityAt = now;
+    }
+
+    public boolean isRoleOnline(String role) {
+        Instant seen = HOST.equals(role) ? hostSeenAt : guestSeenAt;
+        if (seen == null) return false;
+        return Duration.between(seen, Instant.now()).compareTo(PRESENCE_TIMEOUT) < 0;
+    }
+
+    /* ---- lifecycle ------------------------------------------------------- */
+
     public void join(String playerId, String playerName) {
         this.guestId = playerId;
         this.guestName = playerName;
+        this.guestSeenAt = Instant.now();
         this.status = Status.PLAYING;
         touch();
     }
@@ -110,23 +185,72 @@ public class Room {
 
     /**
      * Whose turn it is next. Passed in by the client rather than derived,
-     * because only the client knows the rules - Reversi skips a player who
-     * has no legal move, and the server has no way to work that out without
-     * implementing the game.
+     * because only the client knows the rules - Reversi skips a player with no
+     * legal move, and the server does not implement the game.
      */
     public void setCurrentPlayerId(String playerId) {
         this.currentPlayerId = playerId;
     }
 
-    public void finish(String note) {
-        this.status = Status.FINISHED;
+    /** Ends the current match and adds it to the series score. */
+    public void finishMatch(String winnerRole, String note, boolean forfeited) {
+        if (status == Status.FINISHED || status == Status.ABANDONED) return;
+
+        if (HOST.equals(winnerRole)) hostWins++;
+        else if (GUEST.equals(winnerRole)) guestWins++;
+        else draws++;
+
+        this.lastWinnerRole = winnerRole;
+        this.lastMatchForfeited = forfeited;
         this.resultNote = note;
+        this.status = Status.FINISHED;
+        // A finished match invalidates any rematch offer made during it.
+        this.rematchVotes.clear();
         touch();
     }
 
-    public String opponentOf(String playerId) {
-        if (hostId.equals(playerId)) return guestId;
-        if (guestId != null && guestId.equals(playerId)) return hostId;
-        return null;
+    /* ---- rematch --------------------------------------------------------- */
+
+    /** @return true once both players have asked for a rematch. */
+    public boolean voteRematch(String playerId) {
+        rematchVotes.add(playerId);
+        return isFull() && rematchVotes.contains(hostId) && rematchVotes.contains(guestId);
+    }
+
+    public boolean hasVotedRematch(String playerId) {
+        return playerId != null && rematchVotes.contains(playerId);
+    }
+
+    /** Clears the board for the next match and swaps who starts. */
+    public void startRematch() {
+        moves.clear();
+        rematchVotes.clear();
+        matchNumber++;
+        startingRole = HOST.equals(startingRole) ? GUEST : HOST;
+        currentPlayerId = idOfRole(startingRole);
+        status = Status.PLAYING;
+        resultNote = null;
+        lastWinnerRole = null;
+        lastMatchForfeited = false;
+        touch();
+    }
+
+    /**
+     * A player leaving for good. If they walk out mid-match the opponent is
+     * awarded that match first, so quitting a losing position cannot be used
+     * to dodge the score.
+     */
+    public void abandon(String playerId) {
+        String role = roleOf(playerId);
+        if (role == null) return;
+
+        if (status == Status.PLAYING && isFull()) {
+            String winner = HOST.equals(role) ? GUEST : HOST;
+            finishMatch(winner, "Opponent left the match.", true);
+        }
+
+        this.abandonedByRole = role;
+        this.status = Status.ABANDONED;
+        touch();
     }
 }

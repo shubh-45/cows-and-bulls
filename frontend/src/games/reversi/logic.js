@@ -120,12 +120,12 @@ export function nextTurn(board, justMoved) {
 // two clients can never disagree about what the board looks like and the
 // server never needs a copy of the game's rules.
 //
-// Host is always Black (and therefore moves first); guest is White.
-export const HOST_COLOR = BLACK
-export const GUEST_COLOR = WHITE
-
-export function colorForRole(role) {
-  return role === 'host' ? HOST_COLOR : GUEST_COLOR
+// Black always moves first, so the colour follows whoever is starting this
+// match rather than being pinned to host/guest. The room alternates the start
+// between matches, which is what stops a series being lopsided in favour of
+// whoever happened to create the room.
+export function colorForRole(role, startingRole = 'host') {
+  return role === startingRole ? BLACK : WHITE
 }
 
 export function indexToCell(index) {
@@ -142,12 +142,12 @@ export function cellToIndex(row, col) {
  * pass rule - so a player with no legal move is skipped exactly as in the
  * local game.
  */
-export function replayMoves(moves) {
+export function replayMoves(moves, startingRole = 'host') {
   let board = createBoard()
   let lastPlayer = null
 
   for (const move of moves) {
-    const player = colorForRole(move.role)
+    const player = colorForRole(move.role, startingRole)
     const { row, col } = indexToCell(move.index)
     const flips = flipsForMove(board, row, col, player)
     board = applyMove(board, row, col, player, flips)

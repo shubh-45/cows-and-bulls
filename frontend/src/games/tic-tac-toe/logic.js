@@ -118,18 +118,17 @@ export function chooseAiMove(board, aiPlayer, difficulty = 'medium') {
 // the position by replaying that list, so the two screens cannot disagree and
 // the server needs no copy of the rules.
 //
-// Host is always X and therefore moves first; guest is O.
-export const HOST_MARK = X
-export const GUEST_MARK = O
-
-export function markForRole(role) {
-  return role === 'host' ? HOST_MARK : GUEST_MARK
+// X always moves first by the rules of the game, so the mark follows whoever
+// is starting this match rather than being pinned to host/guest. The room
+// alternates the start between matches so a series stays fair.
+export function markForRole(role, startingRole = 'host') {
+  return role === startingRole ? X : O
 }
 
-export function replayMoves(moves) {
+export function replayMoves(moves, startingRole = 'host') {
   let board = createBoard()
   for (const move of moves) {
-    board = applyMove(board, move.index, markForRole(move.role))
+    board = applyMove(board, move.index, markForRole(move.role, startingRole))
   }
 
   const result = winnerOf(board)

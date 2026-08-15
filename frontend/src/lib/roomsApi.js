@@ -35,17 +35,26 @@ export function fetchRoom(code, playerId) {
 // nextPlayerId and gameOver come from the client because only the client
 // knows the rules - Reversi skips a player with no legal move, and the
 // server does not implement the game.
-export function sendMove(code, { playerId, index, nextPlayerId, gameOver, resultNote }) {
+export function sendMove(code, { playerId, index, nextPlayerId, gameOver, winnerRole, resultNote }) {
   return fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(code)}/moves`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ playerId, index, nextPlayerId, gameOver, resultNote }),
+    body: JSON.stringify({ playerId, index, nextPlayerId, gameOver, winnerRole, resultNote }),
   }).then(handle)
 }
 
-export function forfeitRoom(code, playerId) {
+// Offering a rematch is a vote: the board only resets once both players ask.
+export function requestRematch(code, playerId) {
   const query = new URLSearchParams({ playerId })
-  return fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(code)}/forfeit?${query}`, {
+  return fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(code)}/rematch?${query}`, {
+    method: 'POST',
+  }).then(handle)
+}
+
+// Leaving for good. Walking out mid-match awards it to the opponent.
+export function leaveRoom(code, playerId) {
+  const query = new URLSearchParams({ playerId })
+  return fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(code)}/leave?${query}`, {
     method: 'POST',
   }).then(handle)
 }

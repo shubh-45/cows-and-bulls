@@ -60,13 +60,22 @@ public class RoomController {
                         request.index(),
                         request.nextPlayerId(),
                         request.gameOver(),
+                        request.winnerRole(),
                         request.resultNote()),
                 request.playerId());
     }
 
-    // POST /api/rooms/{code}/forfeit -> leave, ending the game for both sides
-    @PostMapping("/{code}/forfeit")
-    public RoomStateResponse forfeit(@PathVariable String code, @RequestParam String playerId) {
-        return RoomStateResponse.of(roomService.forfeit(code, playerId), playerId);
+    // POST /api/rooms/{code}/rematch -> offer a rematch; the board resets once
+    // both players have asked
+    @PostMapping("/{code}/rematch")
+    public RoomStateResponse rematch(@PathVariable String code, @RequestParam String playerId) {
+        return RoomStateResponse.of(roomService.requestRematch(code, playerId), playerId);
+    }
+
+    // POST /api/rooms/{code}/leave -> leave for good; walking out mid-match
+    // awards that match to the opponent
+    @PostMapping("/{code}/leave")
+    public RoomStateResponse leave(@PathVariable String code, @RequestParam String playerId) {
+        return RoomStateResponse.of(roomService.leave(code, playerId), playerId);
     }
 }

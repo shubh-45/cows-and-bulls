@@ -1,0 +1,189 @@
+/* Shared chrome for every online room. The lobby styles live in each game's
+   own stylesheet as .online-* and are reused here unchanged. */
+
+.room-header {
+  margin-bottom: 16px;
+}
+
+.room-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.room-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.room-confirm-text {
+  font-family: var(--font-display);
+  font-size: 0.74rem;
+  color: #ff8ba0;
+}
+
+.mode-btn.is-danger {
+  border-color: #ff8ba0;
+  color: #ff8ba0;
+}
+
+/* ---- series scoreboard ---- */
+
+.room-series {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--bg);
+  border: 1px solid var(--panel-border);
+}
+
+.series-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.series-chip strong {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  color: var(--text);
+  line-height: 1;
+}
+
+.series-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-display);
+  font-size: 0.76rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 12ch;
+}
+
+.series-them {
+  justify-content: flex-end;
+}
+
+/* centre column carries the match number and any drawn count */
+.series-vs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  font-family: var(--font-display);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.series-draws {
+  opacity: 0.75;
+}
+
+.series-match {
+  color: var(--accent);
+}
+
+/* a quiet online/offline indicator rather than a banner - it only becomes
+   loud (see .room-warning) when the opponent actually goes quiet */
+.presence-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.presence-dot.is-online {
+  background: #4ade80;
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.7);
+}
+
+.presence-dot.is-offline {
+  background: #64748b;
+}
+
+.room-warning {
+  margin: 10px 0 0;
+  padding: 9px 12px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 139, 160, 0.35);
+  background: rgba(255, 139, 160, 0.08);
+  color: #ffc2ce;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+/* ---- result + rematch ---- */
+
+.series-final {
+  margin: 4px 0 14px;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.rematch-nudge {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  color: var(--accent);
+}
+
+.rematch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.rematch-waiting {
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  color: var(--muted);
+  /* a slow pulse so it reads as "still waiting" rather than stuck */
+  animation: rematch-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes rematch-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+.rematch-note {
+  margin: 12px 0 0;
+  font-size: 0.76rem;
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+@media (max-width: 480px) {
+  .series-chip strong {
+    font-size: 1.15rem;
+  }
+
+  .series-label {
+    max-width: 9ch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rematch-waiting {
+    animation: none;
+    opacity: 1;
+  }
+}
