@@ -135,12 +135,27 @@ export default function SnakeDuel({ onExit }) {
     }
   }, [])
 
+  // Only listen while a match is actually running.
+  //
+  // This handler preventDefaults W/A/S/D, and it used to be attached the whole
+  // time the duel screen was mounted - including in the lobby, where it ate
+  // exactly those letters out of the room-code field. Room codes are drawn
+  // from an alphabet containing A, D, S and W, so any code with one of them in
+  // it was impossible to type.
+  const canSteer = Boolean(game) && game.status !== 'over' && countdown === null
   useEffect(() => {
+    if (!canSteer) return undefined
+
     const keys = {
       ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
       w: 'up', s: 'down', a: 'left', d: 'right', W: 'up', S: 'down', A: 'left', D: 'right',
     }
     function onKeyDown(event) {
+      // Belt and braces: never steal a keystroke aimed at a text field, so
+      // adding any future input to this screen can't resurrect the same bug.
+      const tag = event.target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || event.target?.isContentEditable) return
+
       const dir = keys[event.key]
       if (!dir) return
       event.preventDefault()
@@ -148,7 +163,7 @@ export default function SnakeDuel({ onExit }) {
     }
     window.addEventListener('keydown', onKeyDown, { passive: false })
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [steer])
+  }, [steer, canSteer])
 
   // Whichever seat this player has, the simulation's own direction wins once
   // the tick catches up with the input.

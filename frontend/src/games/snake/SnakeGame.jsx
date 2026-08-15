@@ -130,8 +130,17 @@ export default function SnakeGame() {
     return () => cancelAnimationFrame(frame)
   }, [started, paused, over])
 
+  // Not while the duel is showing: this component stays mounted behind it, and
+  // the handler preventDefaults W/A/S/D and space - which is exactly what made
+  // room codes containing those letters impossible to type in the duel lobby.
   useEffect(() => {
+    if (duel) return undefined
+
     function onKeyDown(event) {
+      // Never steal a keystroke aimed at a text field.
+      const tag = event.target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || event.target?.isContentEditable) return
+
       if (event.key === ' ') {
         event.preventDefault()
         setPaused((p) => !p)
@@ -145,7 +154,7 @@ export default function SnakeGame() {
     }
     window.addEventListener('keydown', onKeyDown, { passive: false })
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [steer])
+  }, [steer, duel])
 
   // Losing focus mid-run would otherwise mean coming back to a dead snake.
   useEffect(() => {
