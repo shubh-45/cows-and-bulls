@@ -1,75 +1,114 @@
-import { DIRECTIONS, OPPOSITE } from './engine'
+import { useRef } from 'react'
+import { DEATH, DIRECTIONS, OPPOSITE } from './engine'
 
 // Shared by solo and (later) the duel, so both render an identical board.
 //
-// Only the snake segments and the food are React elements - the grid itself is
-// a CSS background. Re-rendering 225 cells ten times a second would be a lot
-// of pointless DOM work; a snake is ~20 elements and the board never changes.
-// Positions are percentages so the whole thing scales with the container and
-// needs no pixel maths or resize listener.
+// The snake is drawn as one SVG polyline rather than a row of separate boxes.
+// Boxes left visible gaps between segments, so the body read as a string of
+// beads; a single stroke with round joins is continuous through corners and
+// gives a real body you can make thinner or thicker with one number.
 
-export default function SnakeBoard({ state, tickMs, onSteer, palette = ['p1', 'p2'] }) {
-  const cellW = 100 / state.width
-  const cellH = 100 / state.height
+/** Body thickness in grid units - 1 would fill a whole cell edge to edge. */
+const BODY_WIDTH = 0.62
+const HEAD_RADIUS = 0.42
+/** A drag shorter than this counts as a tap, not a swipe. */
+const SWIPE_MIN_PX = 22
 
-  // A tap steers relative to travel: left half of the board turns you left,
-  // right half turns you right. Two enormous targets, no diagonals to fumble,
-  // and it works one-thumbed - which matters more than a swipe once the snake
-  // speeds up.
-  function handleTap(event) {
+export default function SnakeBoard({ state, onSteer, palette = ['p1', 'p2'] }) {
+  const gesture = useRef(null)
+
+  const hitWall = state.snakes.some(
+    (snake) => !snake.alive && snake.causeOfDeath === DEATH.WALL
+  )
+
+  // One surface, two controls. A swipe gives an absolute direction, which is
+  // what most people reach for first; a tap steers relative to travel - left
+  // half turns left, right half turns right - which stays usable one-thumbed
+  // once the snake is fast. Which one you used is decided on release, by
+  // distance, so neither has to be chosen up front.
+  function handleDown(event) {
     if (!onSteer) return
-    const rect = event.currentTarget.getBoundingClientRect()
-    const point = event.changedTouches ? event.changedTouches[0] : event
-    const left = point.clientX - rect.left < rect.width / 2
-    onSteer(left ? 'turn-left' : 'turn-right')
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+    gesture.current = { x: event.clientX, y: event.clientY, rect: event.currentTarget.getBoundingClientRect() }
+  }
+
+  function handleUp(event) {
+    if (!onSteer || !gesture.current) return
+    const { x, y, rect } = gesture.current
+    gesture.current = null
+
+    const dx = event.clientX - x
+    const dy = event.clientY - y
+
+    if (Math.hypot(dx, dy) < SWIPE_MIN_PX) {
+      onSteer(event.clientX - rect.left < rect.width / 2 ? 'turn-left' : 'turn-right')
+      return
+    }
+    // Dominant axis wins, so a slightly diagonal swipe still does the obvious
+    // thing rather than being rejected.
+    onSteer(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up')
   }
 
   return (
     <div
-      className="snake-board"
-      onPointerDown={handleTap}
+      className={`snake-board ${hitWall ? 'is-wall-hit' : ''}`}
+      onPointerDown={handleDown}
+      onPointerUp={handleUp}
+      onPointerCancel={() => { gesture.current = null }}
       style={{ '--cols': state.width, '--rows': state.height }}
       role="application"
       aria-label="Snake board"
     >
-      {state.food && (
-        <span
-          className="snake-food"
-          style={{
-            left: `${state.food.x * cellW}%`,
-            top: `${state.food.y * cellH}%`,
-            width: `${cellW}%`,
-            height: `${cellH}%`,
-          }}
-        />
-      )}
-
-      {state.snakes.map((snake, snakeIndex) =>
-        snake.body.map((part, i) => (
-          <span
-            key={`${snake.id}-${i}`}
-            className={[
-              'snake-seg',
-              `snake-${palette[snakeIndex] ?? 'p1'}`,
-              i === 0 ? 'is-head' : '',
-              snake.alive ? '' : 'is-dead',
-            ].filter(Boolean).join(' ')}
-            style={{
-              left: `${part.x * cellW}%`,
-              top: `${part.y * cellH}%`,
-              width: `${cellW}%`,
-              height: `${cellH}%`,
-              // Later segments fade slightly, which makes the direction of
-              // travel readable at a glance on a small screen.
-              opacity: snake.alive ? Math.max(0.45, 1 - i * 0.03) : 0.3,
-              // Matching the transition to the tick makes movement continuous
-              // rather than a series of jumps.
-              transitionDuration: `${tickMs}ms`,
-            }}
+      <svg
+        className="snake-layer"
+        viewBox={`0 0 ${state.width} ${state.height}`}
+        aria-hidden="true"
+      >
+        {state.food && (
+          <circle
+            className="snake-food"
+            cx={state.food.x + 0.5}
+            cy={state.food.y + 0.5}
+            r={0.3}
           />
-        ))
-      )}
+        )}
+
+        {state.snakes.map((snake, index) => (
+          <Snake key={snake.id} snake={snake} tone={palette[index] ?? 'p1'} />
+        ))}
+      </svg>
     </div>
+  )
+}
+
+function Snake({ snake, tone }) {
+  const points = snake.body.map((part) => `${part.x + 0.5},${part.y + 0.5}`).join(' ')
+  const head = snake.body[0]
+  const dir = DIRECTIONS[snake.dir]
+
+  // Eyes sit ahead of the head centre and to either side of the direction of
+  // travel, which is what makes it read as a snake rather than a dot.
+  const ahead = { x: head.x + 0.5 + dir.x * 0.12, y: head.y + 0.5 + dir.y * 0.12 }
+  const side = { x: -dir.y * 0.16, y: dir.x * 0.16 }
+
+  return (
+    <g className={`snake-body snake-${tone} ${snake.alive ? '' : 'is-dead'}`}>
+      <polyline
+        className="snake-stroke"
+        points={points}
+        strokeWidth={BODY_WIDTH}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <circle className="snake-head" cx={head.x + 0.5} cy={head.y + 0.5} r={HEAD_RADIUS} />
+      {snake.alive && (
+        <>
+          <circle className="snake-eye" cx={ahead.x + side.x} cy={ahead.y + side.y} r={0.08} />
+          <circle className="snake-eye" cx={ahead.x - side.x} cy={ahead.y - side.y} r={0.08} />
+        </>
+      )}
+    </g>
   )
 }
 
@@ -80,7 +119,7 @@ export function steerFrom(currentDir, steer) {
   if (at === -1) return currentDir
   if (steer === 'turn-left') return order[(at + 3) % 4]
   if (steer === 'turn-right') return order[(at + 1) % 4]
-  // an absolute direction, e.g. from the keyboard
+  // an absolute direction, from a swipe or the keyboard
   if (DIRECTIONS[steer] && steer !== OPPOSITE[currentDir]) return steer
   return currentDir
 }

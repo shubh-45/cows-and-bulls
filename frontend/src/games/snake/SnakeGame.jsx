@@ -22,6 +22,39 @@ const DEATH_TEXT = {
 
 const randomSeed = () => (Math.random() * 0xffffffff) >>> 0
 
+const ARROW_ROTATION = { up: 0, right: 90, down: 180, left: 270 }
+
+/**
+ * A straight direction arrow, drawn rather than typed so it stays crisp at any
+ * size. One shape rotated four ways, so all four arrows are identical.
+ */
+function DirArrow({ direction }) {
+  return (
+    <svg
+      className="dir-arrow"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      style={{ transform: `rotate(${ARROW_ROTATION[direction]}deg)` }}
+    >
+      <path
+        d="M12 19 V6.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M6.5 12 L12 6 L17.5 12"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 export default function SnakeGame() {
   const [state, setState] = useState(() => createState(randomSeed(), 1))
   const [started, setStarted] = useState(false)
@@ -188,17 +221,29 @@ export default function SnakeGame() {
           )}
         </div>
 
-        {/* An explicit pad for anyone who prefers buttons to tapping the board,
-            and the only way to steer without covering the play area. */}
-        <div className="snake-pad" aria-hidden={over}>
-          <button className="pad-btn" onClick={() => steer('turn-left')} disabled={over}>
-            ⟲ Left
+        {/* A four-way pad for anyone who prefers buttons to touching the play
+            area. These are absolute directions, so the arrows are straight -
+            pressing up sends the snake up, whichever way it was going. A
+            reversal is ignored by the engine rather than being fatal. */}
+        <div className="snake-pad">
+          <button className="pad-btn pad-up" onClick={() => steer('up')} disabled={over} aria-label="Up">
+            <DirArrow direction="up" />
           </button>
-          <button className="pad-btn pad-pause" onClick={() => setPaused((p) => !p)} disabled={over || !started}>
+          <button className="pad-btn pad-left" onClick={() => steer('left')} disabled={over} aria-label="Left">
+            <DirArrow direction="left" />
+          </button>
+          <button
+            className="pad-btn pad-pause"
+            onClick={() => setPaused((p) => !p)}
+            disabled={over || !started}
+          >
             {paused ? 'Resume' : 'Pause'}
           </button>
-          <button className="pad-btn" onClick={() => steer('turn-right')} disabled={over}>
-            Right ⟳
+          <button className="pad-btn pad-right" onClick={() => steer('right')} disabled={over} aria-label="Right">
+            <DirArrow direction="right" />
+          </button>
+          <button className="pad-btn pad-down" onClick={() => steer('down')} disabled={over} aria-label="Down">
+            <DirArrow direction="down" />
           </button>
         </div>
 
