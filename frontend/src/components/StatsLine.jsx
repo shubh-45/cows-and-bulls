@@ -10,7 +10,7 @@ import './StatsLine.css'
  * `formatBest` turns a raw number into that game's own units ("4 guesses",
  * "12 moves"), since every game measures something different.
  */
-export default function StatsLine({ gameId, formatBest }) {
+export default function StatsLine({ gameId, formatBest, showStreak = true }) {
   const { profile } = useProfile()
   if (!profile) return null
 
@@ -18,8 +18,11 @@ export default function StatsLine({ gameId, formatBest }) {
   if (stats.played === 0) return null
 
   const items = []
-  if (stats.streak > 1) items.push({ label: 'Streak', value: `${stats.streak} 🔥` })
-  if (stats.bestStreak > 1) items.push({ label: 'Best streak', value: stats.bestStreak })
+  // Some games have no losing state - a Snake run just ends - so a "streak"
+  // there would only ever count games played and would read as an achievement
+  // it isn't. Those games opt out.
+  if (showStreak && stats.streak > 1) items.push({ label: 'Streak', value: `${stats.streak} 🔥` })
+  if (showStreak && stats.bestStreak > 1) items.push({ label: 'Best streak', value: stats.bestStreak })
   if (stats.best !== null) {
     items.push({ label: 'Personal best', value: formatBest ? formatBest(stats.best) : stats.best })
   }

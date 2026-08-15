@@ -6,6 +6,7 @@ import MemoryMatchGame from './games/memory-match/MemoryMatchGame'
 import WordleGame from './games/wordle/WordleGame'
 import ReversiGame from './games/reversi/ReversiGame'
 import TicTacToeGame from './games/tic-tac-toe/TicTacToeGame'
+import SnakeGame from './games/snake/SnakeGame'
 import ProfileChip from './components/ProfileChip'
 import WelcomeGate from './components/WelcomeGate'
 import { ProfileProvider } from './lib/useProfile'
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="/games/wordle" element={<WordleGame />} />
           <Route path="/games/reversi" element={<ReversiGame />} />
           <Route path="/games/tic-tac-toe" element={<TicTacToeGame />} />
+          <Route path="/games/snake" element={<SnakeGame />} />
         </Routes>
       </div>
     </HashRouter>

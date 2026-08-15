@@ -42,6 +42,15 @@ export const GAMES = [
     status: 'live',
   },
   {
+    id: 'snake',
+    title: 'Snake',
+    tagline: 'Eat, grow, and never hit the wall.',
+    icon: '🐍',
+    accent: '#4ade80',
+    path: '/games/snake',
+    status: 'live',
+  },
+  {
     id: 'memory-match',
     title: 'Memory Match',
     tagline: 'Flip cards, find every pair, beat your best time.',
