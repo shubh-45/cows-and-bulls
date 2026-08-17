@@ -44,6 +44,31 @@
   color: var(--text);
 }
 
+/* The scoreboard carries the same colours as the snakes, so "which one am I"
+   is answered by the panel as well as by the board. Your side is green on both
+   screens, matching the board's palette. */
+.snake-score.is-you {
+  border-color: color-mix(in srgb, var(--snake-p1) 55%, transparent);
+  background: color-mix(in srgb, var(--snake-p1) 10%, var(--bg));
+}
+
+.snake-score.is-you .snake-score-label {
+  color: var(--snake-p1);
+}
+
+.snake-score.is-them {
+  border-color: color-mix(in srgb, var(--snake-p2) 45%, transparent);
+  background: color-mix(in srgb, var(--snake-p2) 8%, var(--bg));
+}
+
+.snake-score.is-them .snake-score-label {
+  color: var(--snake-p2);
+}
+
+.snake-you-word {
+  color: var(--snake-p1);
+}
+
 /* ---- board ---- */
 
 .snake-stage {
@@ -159,6 +184,28 @@
 
 .snake-p2 .snake-stroke { stroke: var(--snake-p2); }
 .snake-p2 .snake-head { fill: var(--snake-p2); filter: drop-shadow(0 0 0.25px var(--snake-p2)); }
+
+/* Marks your own snake for the whole match, not just the countdown. Colour
+   alone was not enough: in a duel both snakes are bright and a glance at the
+   wrong one costs you the game. A ring reads instantly even mid-panic, and it
+   survives colour-blindness in a way green-versus-blue does not. */
+.snake-you-ring {
+  stroke: #f8fafc;
+  stroke-width: 0.1;
+  opacity: 0.9;
+  animation: snake-you-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes snake-you-pulse {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 0.35; }
+}
+
+/* A still ring is still perfectly legible, so the pulse is the only part that
+   needs removing. */
+@media (prefers-reduced-motion: reduce) {
+  .snake-you-ring { animation: none; }
+}
 
 .snake-eye {
   fill: #0b1220;

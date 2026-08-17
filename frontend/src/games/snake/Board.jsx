@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { DEATH, DIRECTIONS, OPPOSITE } from './engine'
+import { glidingBody } from './glide'
 
 // Shared by solo and (later) the duel, so both render an identical board.
 //
@@ -17,8 +18,22 @@ const SWIPE_MIN_PX = 22
 /**
  * @param {string|null} facing the direction already accepted but not yet
  *   stepped, so the head can acknowledge input before the body moves.
+ * @param {object|null} nextState one tick ahead, for gliding between cells.
+ * @param {number} progress 0..1 through the current tick.
+ * @param {number} localIndex which snake belongs to the player at this screen.
+ *   Everything that says "you" hangs off this: the accepted-input head turn,
+ *   and the ring that marks your own snake. It used to be hard-coded to 0,
+ *   which on the guest's screen pointed at their opponent.
  */
-export default function SnakeBoard({ state, onSteer, facing = null, palette = ['p1', 'p2'] }) {
+export default function SnakeBoard({
+  state,
+  nextState = null,
+  progress = 0,
+  onSteer,
+  facing = null,
+  palette = ['p1', 'p2'],
+  localIndex = 0,
+}) {
   const gesture = useRef(null)
 
   const hitWall = state.snakes.some(
@@ -97,8 +112,12 @@ export default function SnakeBoard({ state, onSteer, facing = null, palette = ['
           <Snake
             key={snake.id}
             snake={snake}
+            next={nextState?.snakes?.[index] ?? null}
+            progress={progress}
             tone={palette[index] ?? 'p1'}
-            facing={index === 0 ? facing : null}
+            facing={index === localIndex ? facing : null}
+            // Only worth marking when there is another snake to confuse it with.
+            marked={index === localIndex && state.snakes.length > 1}
           />
         ))}
       </svg>
@@ -106,9 +125,10 @@ export default function SnakeBoard({ state, onSteer, facing = null, palette = ['
   )
 }
 
-function Snake({ snake, tone, facing }) {
-  const points = snake.body.map((part) => `${part.x + 0.5},${part.y + 0.5}`).join(' ')
-  const head = snake.body[0]
+function Snake({ snake, next, progress, tone, facing, marked }) {
+  const cells = glidingBody(snake, next, progress)
+  const points = cells.map((part) => `${part.x + 0.5},${part.y + 0.5}`).join(' ')
+  const head = cells[0]
   // The eyes look where the *accepted* input points, which may be one tick
   // ahead of where the body has actually moved. With a slower tick that
   // acknowledgement is what stops a turn feeling like it was dropped.
@@ -129,6 +149,18 @@ function Snake({ snake, tone, facing }) {
         strokeLinejoin="round"
         fill="none"
       />
+      {/* Which snake is mine, answerable at a glance and at any moment - not
+          only during the three-second countdown, which is where the answer
+          used to live and be forgotten. */}
+      {marked && snake.alive && (
+        <circle
+          className="snake-you-ring"
+          cx={head.x + 0.5}
+          cy={head.y + 0.5}
+          r={HEAD_RADIUS + 0.2}
+          fill="none"
+        />
+      )}
       <circle className="snake-head" cx={head.x + 0.5} cy={head.y + 0.5} r={HEAD_RADIUS} />
       {snake.alive && (
         <>

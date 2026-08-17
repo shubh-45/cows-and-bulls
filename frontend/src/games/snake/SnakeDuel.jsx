@@ -48,6 +48,10 @@ export default function SnakeDuel({ onExit }) {
   const [game, setGame] = useState(null)
   const [countdown, setCountdown] = useState(null)
   const [stalled, setStalled] = useState(false)
+  // Where the board is between cells: the next tick's state and how far through
+  // the current tick we are. Updated every animation frame, which is what turns
+  // a cell-by-cell jump into movement.
+  const [glide, setGlide] = useState({ next: null, progress: 0 })
   const [reported, setReported] = useState(false)
   // Mirrors the direction just accepted so the head can face it immediately,
   // exactly as the solo game does. Without it the input delay reads as lag.
@@ -173,6 +177,10 @@ export default function SnakeDuel({ onExit }) {
     let frame
     let last = performance.now()
     let accumulator = 0
+    // The tick the glide is currently easing through, and how far into it the
+    // next state became known.
+    let glidingTick = -1
+    let knownAt = null
 
     const loop = (now) => {
       accumulator = Math.min(accumulator + (now - last), 500)
@@ -188,6 +196,23 @@ export default function SnakeDuel({ onExit }) {
       }
       lockstep.advance()
       setStalled(lockstep.stalledFor() > STALL_WARNING_MS)
+
+      const tick = lockstep.state.tick
+      if (tick !== glidingTick) {
+        glidingTick = tick
+        knownAt = null
+      }
+      const next = lockstep.peekNext()
+      const raw = Math.min(accumulator / TICK_MS, 1)
+      // The peer's input for the next tick lands part-way into the current one,
+      // so the glide cannot start at zero. Measuring from where it actually
+      // became known and rescaling spreads the movement over the time that is
+      // left, instead of snapping forward to catch up.
+      if (next && knownAt === null) knownAt = raw
+      if (!next) knownAt = null
+      const from = knownAt ?? 0
+      const progress = next && from < 1 ? Math.min((raw - from) / (1 - from), 1) : 0
+      setGlide({ next, progress })
 
       frame = requestAnimationFrame(loop)
     }
@@ -337,12 +362,14 @@ export default function SnakeDuel({ onExit }) {
       {error && <p className="online-error">{error}</p>}
 
       {game && (
+        // Tinted to match the snakes, so the scoreboard itself says which one is
+        // yours without anybody having to remember a colour.
         <div className="snake-status">
-          <span className="snake-score">
+          <span className="snake-score is-you">
             <span className="snake-score-label">You</span>
             <strong>{mySnake?.score ?? 0}</strong>
           </span>
-          <span className="snake-score">
+          <span className="snake-score is-them">
             <span className="snake-score-label">{room.opponentName || 'Friend'}</span>
             <strong>{theirSnake?.score ?? 0}</strong>
           </span>
@@ -357,16 +384,27 @@ export default function SnakeDuel({ onExit }) {
         <div className="snake-stage">
           <SnakeBoard
             state={game}
+            nextState={glide.next}
+            progress={glide.progress}
             onSteer={over || countdown !== null ? null : steer}
             facing={facing}
+            // Your own snake is always the green one, on both screens - the
+            // colour follows the player, not the seat, so there is nothing to
+            // remember and nothing to get the wrong way round.
             palette={seat === 0 ? ['p1', 'p2'] : ['p2', 'p1']}
+            localIndex={seat}
           />
 
           {countdown !== null && (
             <div className="snake-overlay">
               <p className="snake-countdown">{countdown}</p>
+              {/* Green on both screens, matching the palette above. This used
+                  to read "blue" for the guest while their snake was drawn
+                  green and their opponent's blue - the exact opposite of the
+                  truth, at the one moment players look for the answer. */}
               <p className="snake-overlay-copy">
-                You are the <strong>{seat === 0 ? 'green' : 'blue'}</strong> snake
+                You are the <strong className="snake-you-word">green</strong> snake
+                {' '}with the ring
               </p>
               {latency !== null && (
                 <p className="snake-ping">

@@ -69,6 +69,9 @@ export function createLockstep({ seed, localRole, onState }) {
 
   let pending = null
   let stalledSince = null
+  // One-tick lookahead for the renderer; see peekNext().
+  let peeked = null
+  let peekedFor = -1
   // The next tick this player still owes an input for. It advances by one per
   // input, independently of how many ticks the simulation managed to step -
   // deriving it from state.tick instead leaves gaps the moment advance()
@@ -155,6 +158,32 @@ export function createLockstep({ seed, localRole, onState }) {
         stalledSince = performance.now()
       }
       return stepped
+    },
+
+    /**
+     * The state one tick ahead, or null if the peer's input for it has not
+     * arrived yet.
+     *
+     * Used only for drawing: knowing where every snake is about to be lets the
+     * board glide between cells instead of jumping, with no guessing and no
+     * added lag - the tick the display is easing towards is the tick the
+     * simulation is about to take anyway. Nothing here mutates `state`.
+     *
+     * Cached because the renderer asks once per animation frame while a tick
+     * lasts hundreds of milliseconds, and step() allocates.
+     */
+    peekNext() {
+      const at = state.tick + 1
+      if (!haveBoth(at)) return null
+      if (peekedFor !== at) {
+        const slot = inputs.get(at)
+        peeked = step(state, {
+          [HOST_SEAT]: slot.host ?? null,
+          [GUEST_SEAT]: slot.guest ?? null,
+        })
+        peekedFor = at
+      }
+      return peeked
     },
 
     /** How long this machine has been waiting on the peer, in ms. */
