@@ -5,7 +5,7 @@ import { reportResult } from '../../lib/roomsApi'
 import { useRoom } from '../../lib/useRoom'
 import SnakeBoard, { steerFrom } from './Board'
 import { DEATH, seedFromString } from './engine'
-import { INPUT_DELAY, TICK_MS, createLockstep } from './lockstep'
+import { PROTOCOL_VERSION, TICK_MS, createLockstep } from './lockstep'
 import './Snake.css'
 
 const COUNTDOWN_MS = 3000
@@ -43,6 +43,8 @@ export default function SnakeDuel({ onExit }) {
 
   const [connection, setConnection] = useState('connecting')
   const [latency, setLatency] = useState(null)
+  // Set when the opponent is running a build that would simulate differently.
+  const [versionGap, setVersionGap] = useState(false)
   const [game, setGame] = useState(null)
   const [countdown, setCountdown] = useState(null)
   const [stalled, setStalled] = useState(false)
@@ -91,7 +93,16 @@ export default function SnakeDuel({ onExit }) {
         // recorded against a tick of the NEW simulation. Lockstep keeps the
         // first value it sees for a tick, so that one stale input would desync
         // the two boards for the rest of the match.
-        if (msg?.k === 'i' && msg.m === matchRef.current) {
+        if (msg?.k !== 'i') return
+        // An opponent on another build seeds the opening ticks differently and
+        // would silently play a different board. Refusing the input keeps this
+        // client's simulation honest, and the banner explains the stall rather
+        // than leaving two people staring at boards that disagree.
+        if (msg.v !== PROTOCOL_VERSION) {
+          setVersionGap(true)
+          return
+        }
+        if (msg.m === matchRef.current) {
           lockstepRef.current?.receive(msg.t, msg.r, msg.d)
         }
       },
@@ -129,6 +140,7 @@ export default function SnakeDuel({ onExit }) {
     setGame(lockstepRef.current.state)
     setReported(false)
     setStalled(false)
+    setVersionGap(false)
     steerRef.current = null
     setFacing(null)
 
@@ -171,7 +183,7 @@ export default function SnakeDuel({ onExit }) {
       while (accumulator >= TICK_MS) {
         accumulator -= TICK_MS
         for (const message of lockstep.commit()) {
-          link.send({ k: 'i', m: matchRef.current, ...message })
+          link.send({ k: 'i', v: PROTOCOL_VERSION, m: matchRef.current, ...message })
         }
       }
       lockstep.advance()
@@ -312,6 +324,14 @@ export default function SnakeDuel({ onExit }) {
         <div className={connection === 'rejected' ? 'online-error' : 'online-share'}>
           <p style={{ margin: 0 }}>{CONNECTION_COPY[connection] ?? 'Connecting…'}</p>
         </div>
+      )}
+
+      {versionGap && (
+        <p className="online-error">
+          You and {room.opponentName || 'your friend'} are on different versions
+          of the game, so the boards would not match. Both of you refresh the
+          page, then start the match again.
+        </p>
       )}
 
       {error && <p className="online-error">{error}</p>}

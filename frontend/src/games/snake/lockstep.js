@@ -15,10 +15,38 @@ import { createState, step } from './engine.js'
 // side. Too small and the game stalls waiting; too large and steering feels
 // remote.
 
-// Slower than it was: at 150ms the duel felt frantic, and unlike solo there
-// is no ramp - a shared clock has to stay constant on both machines.
-export const TICK_MS = 190
-export const INPUT_DELAY = 2
+// Half the old pace. At 190ms the duel was frantic - two snakes racing for the
+// same dot needs thinking time, not reflexes - and unlike solo there is no
+// ramp, because a shared clock has to stay constant on both machines.
+export const TICK_MS = 380
+
+// How far ahead an input is scheduled. THIS IS THE INPUT LAG, and it is
+// measured in ticks, so it must come down whenever the tick gets longer:
+// leaving it at 2 while doubling TICK_MS would have taken a turn from landing
+// 570ms after the press to 1140ms.
+//
+// A steer is scheduled for tick + INPUT_DELAY + 1, so at 1 a turn lands two
+// cells of travel ahead instead of three - the number that actually matters
+// when you are judging whether you can round a corner.
+//
+// It cannot go to 0. An input for tick X is sent at the boundary where
+// state.tick is X - INPUT_DELAY - 1 and is needed by the peer at X - 1, so the
+// network budget is exactly INPUT_DELAY * TICK_MS: at 0 that is zero, and every
+// single tick would stall by the one-way latency. At 1 it is 380ms against a
+// measured ~80ms, the same margin the duel already runs with.
+export const INPUT_DELAY = 1
+
+/**
+ * Bumped whenever a change would make two clients simulate differently -
+ * TICK_MS, INPUT_DELAY, or anything in engine.js.
+ *
+ * Both browsers seed the opening ticks from INPUT_DELAY, so two clients
+ * disagreeing about it produce different boards from tick one with nothing on
+ * screen to say why. Netlify and Render also deploy minutes apart, and players
+ * keep tabs open for hours, so a mismatched pair is a normal occurrence rather
+ * than a freak one. Better to refuse the match and say so.
+ */
+export const PROTOCOL_VERSION = 2
 
 /** Seat numbers must match on both machines, because the engine resolves
     collisions in snake-id order - if the two sides disagreed about which snake
