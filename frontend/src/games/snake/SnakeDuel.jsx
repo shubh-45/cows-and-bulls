@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { MatchResult, RoomHeader, RoomLobby } from '../../components/RoomShell'
-import { createPeer } from '../../lib/peer'
+import { createDuelLink } from '../../lib/duelSocket'
 import { reportResult } from '../../lib/roomsApi'
 import { useRoom } from '../../lib/useRoom'
 import SnakeBoard, { steerFrom } from './Board'
@@ -11,6 +11,24 @@ import './Snake.css'
 const COUNTDOWN_MS = 3000
 /** Long enough to ride out a hiccup, short enough not to look frozen. */
 const STALL_WARNING_MS = 1200
+
+/**
+ * A dropped socket is recoverable and reconnects on its own, so none of these
+ * are dead ends except 'rejected'. Saying which one it is matters: "waking"
+ * asks for patience, "reconnecting" says the match is still there.
+ */
+const CONNECTION_COPY = {
+  connecting: 'Connecting…',
+  waking:
+    'Waking the server — it sleeps after 15 minutes idle, so the first connection can take up to a minute.',
+  waiting: 'Waiting for your friend to open the duel…',
+  reconnecting: 'Connection dropped — reconnecting, the match is still here…',
+  rejected: 'This room no longer has a seat for you. Leave and start a new one.',
+  closed: 'Disconnected.',
+}
+
+/** Above this the 380ms lockstep budget gets tight and play may stutter. */
+const SLOW_PING_MS = 300
 
 const DEATH_TEXT = {
   [DEATH.WALL]: 'hit the wall',
@@ -23,57 +41,86 @@ export default function SnakeDuel({ onExit }) {
   const { room, playerId, error, busy, copied, create, join, rematch, leave, copyCode } =
     useRoom('snake')
 
-  const [connection, setConnection] = useState('idle')
+  const [connection, setConnection] = useState('connecting')
+  const [latency, setLatency] = useState(null)
   const [game, setGame] = useState(null)
   const [countdown, setCountdown] = useState(null)
   const [stalled, setStalled] = useState(false)
   const [reported, setReported] = useState(false)
-  // Bumping this tears the peer down and negotiates again, which is the only
-  // useful thing to offer someone whose connection didn't come up.
-  const [attempt, setAttempt] = useState(0)
   // Mirrors the direction just accepted so the head can face it immediately,
   // exactly as the solo game does. Without it the input delay reads as lag.
   const [facing, setFacing] = useState(null)
 
-  const peerRef = useRef(null)
+  const linkRef = useRef(null)
   const lockstepRef = useRef(null)
   const steerRef = useRef(null)
+  // Which match the current simulation was built for. Guards against a
+  // connection blip rebuilding lockstep mid-match and resetting the board.
+  const startedRef = useRef(null)
+  const countdownTimerRef = useRef(null)
 
-  const isHost = room?.yourRole === 'host'
   const matchNumber = room?.matchNumber ?? 1
+  // Read inside the socket callback, which is created once and would otherwise
+  // capture the match number it was built with.
+  const matchRef = useRef(matchNumber)
+  matchRef.current = matchNumber
   // Both sides derive the seed from the room code and match number, so the
   // food sequence matches without anyone having to send it.
   const seed = room ? seedFromString(`${room.code}:${matchNumber}`) : 0
 
   /* ---- connection ---- */
 
+  // Opened as soon as this player is in a room, rather than waiting for the
+  // opponent to show up. The relay parks a lone player as 'waiting', so the
+  // socket - and any cold-start wait - is already dealt with by the time the
+  // friend arrives, and the match begins the instant the server pairs them.
   useEffect(() => {
-    if (!room?.opponentPresent || !playerId || peerRef.current) return undefined
+    if (!room?.code || !playerId) return undefined
 
-    const peer = createPeer({
+    const link = createDuelLink({
       code: room.code,
       playerId,
-      isHost,
-      onStatus: setConnection,
+      onStatus: (status, detail) => {
+        setConnection(status)
+        if (detail?.rtt != null) setLatency(detail.rtt)
+      },
       onMessage: (msg) => {
-        if (msg?.k === 'i') lockstepRef.current?.receive(msg.t, msg.r, msg.d)
+        // Inputs carry the match they belong to. A straggler from the previous
+        // match - in flight across a rematch, or re-sent by the reconnect
+        // replay before the new match has cleared the log - would otherwise be
+        // recorded against a tick of the NEW simulation. Lockstep keeps the
+        // first value it sees for a tick, so that one stale input would desync
+        // the two boards for the rest of the match.
+        if (msg?.k === 'i' && msg.m === matchRef.current) {
+          lockstepRef.current?.receive(msg.t, msg.r, msg.d)
+        }
       },
     })
-    peerRef.current = peer
+    linkRef.current = link
     return () => {
-      peer.close()
-      peerRef.current = null
+      link.close()
+      linkRef.current = null
     }
-  }, [room?.opponentPresent, room?.code, playerId, isHost, attempt])
+  }, [room?.code, playerId])
 
   /* ---- match lifecycle ---- */
 
   // A new match (first one, or a rematch) rebuilds the simulation from the
   // shared seed and counts both players in.
+  //
+  // Keyed on the match, not on the connection. A socket that drops and comes
+  // back re-fires 'connected', and rebuilding on that would wipe a match in
+  // progress and hand both players a fresh board halfway through.
   useEffect(() => {
-    if (connection !== 'connected' || !room) return undefined
-    if (room.status !== 'PLAYING') return undefined
+    if (connection !== 'connected' || !room || room.status !== 'PLAYING') return
 
+    const key = `${room.code}:${matchNumber}`
+    if (startedRef.current === key) return
+    startedRef.current = key
+
+    // A rematch reuses the socket, so last match's inputs must not be replayed
+    // into the new simulation.
+    linkRef.current?.resetHistory()
     lockstepRef.current = createLockstep({
       seed,
       localRole: room.yourRole,
@@ -82,24 +129,33 @@ export default function SnakeDuel({ onExit }) {
     setGame(lockstepRef.current.state)
     setReported(false)
     setStalled(false)
+    steerRef.current = null
+    setFacing(null)
 
+    // The two countdowns need not line up: lockstep will not step a tick until
+    // both sides have committed an input for it, so whoever starts first simply
+    // waits. The clock is there for the players, not for correctness.
     const startAt = Date.now() + COUNTDOWN_MS
     setCountdown(Math.ceil(COUNTDOWN_MS / 1000))
-    const timer = setInterval(() => {
+    clearInterval(countdownTimerRef.current)
+    countdownTimerRef.current = setInterval(() => {
       const left = Math.ceil((startAt - Date.now()) / 1000)
       setCountdown(left > 0 ? left : null)
-      if (left <= 0) clearInterval(timer)
+      if (left <= 0) clearInterval(countdownTimerRef.current)
     }, 200)
+  }, [connection, room?.status, room?.code, matchNumber, seed, room?.yourRole])
 
-    return () => clearInterval(timer)
-  }, [connection, room?.status, matchNumber, seed, room?.yourRole])
+  useEffect(() => () => clearInterval(countdownTimerRef.current), [])
 
   /* ---- the tick loop ---- */
 
   useEffect(() => {
     const lockstep = lockstepRef.current
-    const peer = peerRef.current
-    if (!lockstep || !peer || countdown !== null) return undefined
+    const link = linkRef.current
+    if (!lockstep || !link || countdown !== null) return undefined
+    // Pausing while the socket is down is safe and deliberate: commit() only
+    // runs inside this loop, so no tick is skipped, and the inputs already sent
+    // are replayed on reconnect. The opponent stalls until we are back.
     if (connection !== 'connected' || lockstep.state.status === 'over') return undefined
 
     let frame
@@ -115,7 +171,7 @@ export default function SnakeDuel({ onExit }) {
       while (accumulator >= TICK_MS) {
         accumulator -= TICK_MS
         for (const message of lockstep.commit()) {
-          peer.send({ k: 'i', ...message })
+          link.send({ k: 'i', m: matchRef.current, ...message })
         }
       }
       lockstep.advance()
@@ -248,26 +304,13 @@ export default function SnakeDuel({ onExit }) {
         </p>
       )}
 
-      {room.opponentPresent && connection !== 'connected' && !abandoned && (
-        <div className={connection === 'failed' ? 'online-error' : 'online-share'}>
-          {connection === 'failed' ? (
-            <>
-              <p style={{ margin: 0 }}>
-                Couldn't open a direct connection. Both of you need to be here at
-                the same time, and some networks block it &mdash; the same WiFi
-                works best.
-              </p>
-              <button
-                className="btn btn-primary"
-                style={{ marginTop: 12 }}
-                onClick={() => setAttempt((n) => n + 1)}
-              >
-                Try again
-              </button>
-            </>
-          ) : (
-            <p style={{ margin: 0 }}>Connecting directly to your friend…</p>
-          )}
+      {/* Before the board exists, connection state is the whole story. Once a
+          match is running it moves to an overlay instead, so a blip does not
+          shove the board down the page. */}
+      {!game && !abandoned && connection !== 'connected' &&
+        !(waiting && connection === 'waiting') && (
+        <div className={connection === 'rejected' ? 'online-error' : 'online-share'}>
+          <p style={{ margin: 0 }}>{CONNECTION_COPY[connection] ?? 'Connecting…'}</p>
         </div>
       )}
 
@@ -305,10 +348,25 @@ export default function SnakeDuel({ onExit }) {
               <p className="snake-overlay-copy">
                 You are the <strong>{seat === 0 ? 'green' : 'blue'}</strong> snake
               </p>
+              {latency !== null && (
+                <p className="snake-ping">
+                  {latency}ms to your friend
+                  {latency > SLOW_PING_MS ? ' · may stutter' : ''}
+                </p>
+              )}
             </div>
           )}
 
-          {stalled && !over && countdown === null && (
+          {/* A dropped connection outranks a stall: it explains the stall. */}
+          {connection !== 'connected' && !over && (
+            <div className="snake-overlay is-stalled">
+              <p className="snake-overlay-copy">
+                {CONNECTION_COPY[connection] ?? 'Reconnecting…'}
+              </p>
+            </div>
+          )}
+
+          {connection === 'connected' && stalled && !over && countdown === null && (
             <div className="snake-overlay is-stalled">
               <p className="snake-overlay-copy">Waiting for {room.opponentName || 'your friend'}…</p>
             </div>

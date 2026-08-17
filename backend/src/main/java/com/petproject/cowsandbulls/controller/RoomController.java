@@ -4,8 +4,6 @@ import com.petproject.cowsandbulls.dto.CreateRoomRequest;
 import com.petproject.cowsandbulls.dto.JoinRoomRequest;
 import com.petproject.cowsandbulls.dto.RoomMoveRequest;
 import com.petproject.cowsandbulls.dto.RoomStateResponse;
-import com.petproject.cowsandbulls.dto.SignalRequest;
-import com.petproject.cowsandbulls.dto.SignalsResponse;
 import com.petproject.cowsandbulls.service.RoomService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -16,9 +14,11 @@ import org.springframework.web.bind.annotation.*;
  * zero traffic when a lobby of strangers never would.
  *
  * <p>Clients poll GET /api/rooms/{code} rather than holding a socket open.
- * Both supported games are turn-based, so a poll every second or two is
- * indistinguishable from realtime, and it avoids WebSocket lifecycle handling
- * on an instance that sleeps.
+ * The turn-based games are well served by a poll every second or two, and it
+ * avoids WebSocket lifecycle handling on an instance that sleeps. Snake is the
+ * exception: a real-time duel cannot be polled, so it opens a socket to
+ * {@code /ws/duel} for its input stream and uses these endpoints only to find
+ * an opponent and record the result.
  */
 @RestController
 @RequestMapping("/api/rooms")
@@ -83,23 +83,6 @@ public class RoomController {
             @RequestParam String winnerRole,
             @RequestParam(required = false) String note) {
         return RoomStateResponse.of(roomService.reportResult(code, playerId, winnerRole, note), playerId);
-    }
-
-    // POST /api/rooms/{code}/signals -> relay one WebRTC handshake message
-    @PostMapping("/{code}/signals")
-    public SignalsResponse postSignal(@PathVariable String code, @Valid @RequestBody SignalRequest request) {
-        roomService.postSignal(code, request.playerId(), request.kind(), request.payload());
-        return new SignalsResponse(0, java.util.List.of());
-    }
-
-    // GET /api/rooms/{code}/signals -> whatever the other player has left,
-    // after the caller's cursor
-    @GetMapping("/{code}/signals")
-    public SignalsResponse readSignals(
-            @PathVariable String code,
-            @RequestParam String playerId,
-            @RequestParam(defaultValue = "0") int since) {
-        return SignalsResponse.of(roomService.readSignals(code, playerId, since), since);
     }
 
     // POST /api/rooms/{code}/leave -> leave for good; walking out mid-match

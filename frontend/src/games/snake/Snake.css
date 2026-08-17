@@ -216,6 +216,18 @@
   color: var(--muted);
 }
 
+/* Measured latency, shown during the countdown - the one moment a player is
+   waiting anyway and can use the information. Deliberately quiet: it is
+   reassurance when the number is good and an explanation when it is not. */
+.snake-ping {
+  margin: 0;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  opacity: 0.75;
+}
+
 /* The end-of-run overlay carries more than the others, so it scrolls rather
    than overflowing on a short screen. */
 .snake-overlay.is-result {

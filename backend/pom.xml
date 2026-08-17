@@ -30,6 +30,14 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+        <!-- Carries the Snake duel. The two browsers cannot reliably reach each
+             other directly (no free TURN relay exists, and mobile carriers are
+             all behind carrier-grade NAT), so the duel's tiny input stream is
+             relayed through here instead. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>

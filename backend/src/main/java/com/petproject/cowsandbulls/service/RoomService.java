@@ -218,34 +218,20 @@ public class RoomService {
     }
 
     /**
-     * Relays one WebRTC handshake message. The server never inspects the
-     * payload - it is the browser's own SDP or ICE JSON. This is the only part
-     * of a Snake duel the backend touches; once the peers connect directly it
-     * sees nothing until the result is reported.
+     * Which seat a player holds, or null if the room or the player is unknown.
+     *
+     * <p>Unlike the rest of this class this reports failure by returning null
+     * rather than throwing: the caller is the duel WebSocket, which answers a
+     * rejected connection with a close frame, not an HTTP error.
      */
-    public Room postSignal(String code, String playerId, String kind, String payload) {
-        Room room = require(code);
+    public String roleIn(String code, String playerId) {
+        Room room = rooms.get(normalize(code));
+        if (room == null) return null;
         String role = room.roleOf(playerId);
-        if (role == null) {
-            throw new InvalidRoomActionException("You are not a player in this room.");
-        }
-        room.recordSeen(playerId);
-        try {
-            room.addSignal(role, kind, payload);
-        } catch (IllegalStateException ex) {
-            throw new InvalidRoomActionException(ex.getMessage());
-        }
-        return room;
-    }
-
-    public java.util.List<Room.Signal> readSignals(String code, String playerId, int since) {
-        Room room = require(code);
-        String role = room.roleOf(playerId);
-        if (role == null) {
-            throw new InvalidRoomActionException("You are not a player in this room.");
-        }
-        room.recordSeen(playerId);
-        return room.signalsFor(role, since);
+        // Holding the socket open is proof of presence just as polling is, so a
+        // player mid-duel cannot flicker "offline" to their opponent.
+        if (role != null) room.recordSeen(playerId);
+        return role;
     }
 
     @Scheduled(fixedDelayString = "${app.room.cleanup-interval-ms:300000}")
