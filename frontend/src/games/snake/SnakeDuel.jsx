@@ -38,7 +38,7 @@ const DEATH_TEXT = {
 }
 
 export default function SnakeDuel({ onExit }) {
-  const { room, playerId, error, busy, copied, create, join, rematch, leave, copyCode } =
+  const { room, playerId, error, busy, copied, create, join, rematch, leave, copyCode, refresh } =
     useRoom('snake')
 
   const [connection, setConnection] = useState('connecting')
@@ -115,8 +115,16 @@ export default function SnakeDuel({ onExit }) {
   // guest that was disconnected when the match ended would otherwise never be
   // told: snapshots ride on ticks, and a finished match has none left.
   useEffect(() => {
-    if (connection === 'connected') duelRef.current?.resync()
-  }, [connection])
+    if (connection !== 'connected') return
+    duelRef.current?.resync()
+    // The socket knows both players are here the instant they are; the room
+    // only says so on the next poll, up to 1.5s later. The match begins on
+    // room status, so the host used to start counting down as much as a second
+    // and a half after the guest - who finished counting, saw a still board and
+    // was told their friend had stopped responding. Asking the room now
+    // collapses that to one round trip.
+    refresh()
+  }, [connection, refresh])
 
   /* ---- match lifecycle ---- */
 

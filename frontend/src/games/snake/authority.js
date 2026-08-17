@@ -73,8 +73,19 @@ export function createDuel({ seed, role, onState, send }) {
   let myTurnTick = null
 
   // When the currently-drawn tick started, for the glide between cells. The
-  // host measures from its own step, the guest from the snapshot landing.
+  // host sets it from its own step; the guest runs a clock that tracks the
+  // referee's cadence rather than jumping to each packet's arrival.
   let tickStartedAt = now()
+
+  /**
+   * Whether the referee has actually started this match.
+   *
+   * The two countdowns do not finish together - the host only learns the room
+   * is PLAYING on its next poll - so the guest can be counted in and waiting
+   * while the referee is still counting down. Without this the guest showed
+   * "waiting for your friend" over a board that had simply not begun.
+   */
+  let started = isHost
 
   function now() {
     return typeof performance !== 'undefined' ? performance.now() : Date.now()
@@ -151,8 +162,40 @@ export function createDuel({ seed, role, onState, send }) {
         // Nothing needs reconciling because the host honours the tagged tick,
         // so a prediction that was made is a prediction that came true.
         if (msg.s && msg.t >= state.tick) {
+          const advanced = msg.t > state.tick
+          const wasStarted = started
           state = msg.s
-          tickStartedAt = now()
+          started = true
+
+          if (advanced && !wasStarted) {
+            // First snapshot of the match: start the clock cleanly rather than
+            // phase-locking against a cadence that does not exist yet.
+            tickStartedAt = now()
+          } else if (advanced) {
+            // A LOCAL clock that tracks the referee's cadence, rather than one
+            // reset by each arriving packet.
+            //
+            // Restarting the glide on arrival made every scrap of network
+            // jitter a visible stutter, and a snapshot that ran late froze the
+            // board outright - which is why the referee looked flawless while
+            // the other player stuttered. Easing towards the observed cadence
+            // absorbs the jitter; only a genuinely large gap resynchronises
+            // hard.
+            const expected = tickStartedAt + TICK_MS
+            const drift = now() - expected
+            tickStartedAt = Math.abs(drift) > TICK_MS ? now() : expected + drift * 0.2
+            // Never put the clock in the future. Easing towards a snapshot that
+            // arrived early can overshoot, and a negative progress means the
+            // board draws no movement at all - the snake would sit still until
+            // the clock caught up, which is the very symptom being fixed.
+            if (tickStartedAt > now()) tickStartedAt = now()
+          }
+          // A same-tick snapshot is a CORRECTION - the referee redid history to
+          // honour a turn that arrived late. Restarting the glide for it put a
+          // visible hitch on the board at exactly the moment a player turns,
+          // which is precisely when they are watching. The board is corrected;
+          // the clock is left alone.
+
           if (myTurnTick !== null && state.tick >= myTurnTick) {
             myTurn = null
             myTurnTick = null
@@ -209,14 +252,21 @@ export function createDuel({ seed, role, onState, send }) {
         : step(state, { [GUEST_SEAT]: myTurn })
     },
 
-    /** 0..1 through the current tick, for the glide. */
+    /** 0..1 through the current tick, for the glide. Clamped at both ends:
+        anything below 0 draws as no movement at all. */
     progress() {
-      return Math.min((now() - tickStartedAt) / TICK_MS, 1)
+      const t = (now() - tickStartedAt) / TICK_MS
+      return t < 0 ? 0 : t > 1 ? 1 : t
     },
 
-    /** How long since the referee last said anything, in ms. Guest only. */
+    /**
+     * How long since the referee last said anything, in ms. Guest only, and
+     * only once it has actually started - a match that has not begun is not a
+     * connection problem, and reporting it as one was alarming for something
+     * entirely normal.
+     */
     silentFor() {
-      return isHost ? 0 : now() - tickStartedAt
+      return isHost || !started ? 0 : now() - tickStartedAt
     },
 
     get localSeat() {
