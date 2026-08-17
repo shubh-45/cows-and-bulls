@@ -5,7 +5,7 @@ import { reportResult } from '../../lib/roomsApi'
 import { useRoom } from '../../lib/useRoom'
 import SnakeBoard, { steerFrom } from './Board'
 import { DEATH, seedFromString } from './engine'
-import { PROTOCOL_VERSION, TICK_MS, createDuel } from './authority'
+import { PROTOCOL_VERSION, createDuel } from './authority'
 import './Snake.css'
 
 const COUNTDOWN_MS = 3000
@@ -209,8 +209,14 @@ export default function SnakeDuel({ onExit }) {
       // fine, because it draws from its own clock; the guest saw a lurch and
       // then a freeze. Catching up one tick per frame clears the same backlog
       // in a few 16ms frames instead, which nobody can see.
-      if (accumulator >= TICK_MS) {
-        accumulator -= TICK_MS
+      // Both sides tick here now. The referee advances the match; the guest
+      // advances its own clock and replays its prediction forward, so its board
+      // moves on a local beat instead of lurching whenever a packet lands.
+      // The interval is asked for rather than fixed, because the guest nudges
+      // its own to hold a steady one-tick lead on the referee.
+      const interval = duel.tickInterval()
+      if (accumulator >= interval) {
+        accumulator -= interval
         duel.tick()
       }
 
