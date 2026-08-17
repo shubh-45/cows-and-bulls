@@ -5,7 +5,7 @@ import { reportResult } from '../../lib/roomsApi'
 import { useRoom } from '../../lib/useRoom'
 import SnakeBoard, { steerFrom } from './Board'
 import { DEATH, seedFromString } from './engine'
-import { PROTOCOL_VERSION, TICK_MS, createLockstep } from './lockstep'
+import { PROTOCOL_VERSION, TICK_MS, createDuel } from './authority'
 import './Snake.css'
 
 const COUNTDOWN_MS = 3000
@@ -27,7 +27,7 @@ const CONNECTION_COPY = {
   closed: 'Disconnected.',
 }
 
-/** Above this the 380ms lockstep budget gets tight and play may stutter. */
+/** Above this a relayed hop starts to be felt on the opponent's snake. */
 const SLOW_PING_MS = 300
 
 const DEATH_TEXT = {
@@ -58,10 +58,10 @@ export default function SnakeDuel({ onExit }) {
   const [facing, setFacing] = useState(null)
 
   const linkRef = useRef(null)
-  const lockstepRef = useRef(null)
+  const duelRef = useRef(null)
   const steerRef = useRef(null)
   // Which match the current simulation was built for. Guards against a
-  // connection blip rebuilding lockstep mid-match and resetting the board.
+  // connection blip rebuilding the match mid-play and resetting the board.
   const startedRef = useRef(null)
   const countdownTimerRef = useRef(null)
 
@@ -91,24 +91,17 @@ export default function SnakeDuel({ onExit }) {
         if (detail?.rtt != null) setLatency(detail.rtt)
       },
       onMessage: (msg) => {
-        // Inputs carry the match they belong to. A straggler from the previous
-        // match - in flight across a rematch, or re-sent by the reconnect
-        // replay before the new match has cleared the log - would otherwise be
-        // recorded against a tick of the NEW simulation. Lockstep keeps the
-        // first value it sees for a tick, so that one stale input would desync
-        // the two boards for the rest of the match.
-        if (msg?.k !== 'i') return
-        // An opponent on another build seeds the opening ticks differently and
-        // would silently play a different board. Refusing the input keeps this
-        // client's simulation honest, and the banner explains the stall rather
-        // than leaving two people staring at boards that disagree.
+        if (!msg?.k) return
+        // An opponent on an older build speaks a different protocol entirely.
+        // Saying so beats two people staring at boards that quietly disagree.
         if (msg.v !== PROTOCOL_VERSION) {
           setVersionGap(true)
           return
         }
-        if (msg.m === matchRef.current) {
-          lockstepRef.current?.receive(msg.t, msg.r, msg.d)
-        }
+        // A snapshot left over from the previous match would drag the board
+        // backwards into a game that is already finished.
+        if (msg.m !== matchRef.current) return
+        duelRef.current?.receive(msg)
       },
     })
     linkRef.current = link
@@ -117,6 +110,13 @@ export default function SnakeDuel({ onExit }) {
       linkRef.current = null
     }
   }, [room?.code, playerId])
+
+  // Whenever the pair re-forms, the referee restates where the match is. A
+  // guest that was disconnected when the match ended would otherwise never be
+  // told: snapshots ride on ticks, and a finished match has none left.
+  useEffect(() => {
+    if (connection === 'connected') duelRef.current?.resync()
+  }, [connection])
 
   /* ---- match lifecycle ---- */
 
@@ -133,24 +133,24 @@ export default function SnakeDuel({ onExit }) {
     if (startedRef.current === key) return
     startedRef.current = key
 
-    // A rematch reuses the socket, so last match's inputs must not be replayed
-    // into the new simulation.
-    linkRef.current?.resetHistory()
-    lockstepRef.current = createLockstep({
+    duelRef.current = createDuel({
       seed,
-      localRole: room.yourRole,
+      role: room.yourRole,
       onState: setGame,
+      // The match number rides on every message so a rematch cannot be
+      // confused with the match before it.
+      send: (msg) => linkRef.current?.send({ ...msg, m: matchRef.current }),
     })
-    setGame(lockstepRef.current.state)
+    setGame(duelRef.current.state)
     setReported(false)
     setStalled(false)
     setVersionGap(false)
     steerRef.current = null
     setFacing(null)
 
-    // The two countdowns need not line up: lockstep will not step a tick until
-    // both sides have committed an input for it, so whoever starts first simply
-    // waits. The clock is there for the players, not for correctness.
+    // The two countdowns need not line up. The referee starts simulating when
+    // its own reaches zero and the guest simply picks up the snapshots, so the
+    // clock is there for the players, not for correctness.
     const startAt = Date.now() + COUNTDOWN_MS
     setCountdown(Math.ceil(COUNTDOWN_MS / 1000))
     clearInterval(countdownTimerRef.current)
@@ -166,53 +166,31 @@ export default function SnakeDuel({ onExit }) {
   /* ---- the tick loop ---- */
 
   useEffect(() => {
-    const lockstep = lockstepRef.current
-    const link = linkRef.current
-    if (!lockstep || !link || countdown !== null) return undefined
-    // Pausing while the socket is down is safe and deliberate: commit() only
-    // runs inside this loop, so no tick is skipped, and the inputs already sent
-    // are replayed on reconnect. The opponent stalls until we are back.
-    if (connection !== 'connected' || lockstep.state.status === 'over') return undefined
+    const duel = duelRef.current
+    if (!duel || countdown !== null) return undefined
+    if (connection !== 'connected' || duel.state.status === 'over') return undefined
 
     let frame
     let last = performance.now()
     let accumulator = 0
-    // The tick the glide is currently easing through, and how far into it the
-    // next state became known.
-    let glidingTick = -1
-    let knownAt = null
 
     const loop = (now) => {
       accumulator = Math.min(accumulator + (now - last), 500)
       last = now
 
-      // One commit per tick of real time. Advancing is separate and only
-      // happens when the peer's input has actually arrived.
+      // Only the referee advances the match, and it advances exactly one tick
+      // per tick of real time - never waiting on the other player, which is the
+      // whole reason the old model froze. On the guest this is a no-op: its
+      // clock is the arrival of snapshots, and this loop only draws.
       while (accumulator >= TICK_MS) {
         accumulator -= TICK_MS
-        for (const message of lockstep.commit()) {
-          link.send({ k: 'i', v: PROTOCOL_VERSION, m: matchRef.current, ...message })
-        }
+        duel.tick()
       }
-      lockstep.advance()
-      setStalled(lockstep.stalledFor() > STALL_WARNING_MS)
 
-      const tick = lockstep.state.tick
-      if (tick !== glidingTick) {
-        glidingTick = tick
-        knownAt = null
-      }
-      const next = lockstep.peekNext()
-      const raw = Math.min(accumulator / TICK_MS, 1)
-      // The peer's input for the next tick lands part-way into the current one,
-      // so the glide cannot start at zero. Measuring from where it actually
-      // became known and rescaling spreads the movement over the time that is
-      // left, instead of snapping forward to catch up.
-      if (next && knownAt === null) knownAt = raw
-      if (!next) knownAt = null
-      const from = knownAt ?? 0
-      const progress = next && from < 1 ? Math.min((raw - from) / (1 - from), 1) : 0
-      setGlide({ next, progress })
+      setGlide({ next: duel.peekNext(), progress: duel.progress() })
+      // Only the guest can be left waiting, and only if the referee itself has
+      // gone quiet - never because of a single late input.
+      setStalled(duel.silentFor() > STALL_WARNING_MS)
 
       frame = requestAnimationFrame(loop)
     }
@@ -223,15 +201,15 @@ export default function SnakeDuel({ onExit }) {
   /* ---- input ---- */
 
   const steer = useCallback((steerOrDir) => {
-    const lockstep = lockstepRef.current
-    if (!lockstep || lockstep.state.status === 'over') return
-    const seat = lockstep.localSeat
-    const current = steerRef.current ?? lockstep.state.snakes[seat].dir
+    const duel = duelRef.current
+    if (!duel || duel.state.status === 'over') return
+    const seat = duel.localSeat
+    const current = steerRef.current ?? duel.state.snakes[seat].dir
     const next = steerFrom(current, steerOrDir)
     if (next !== current) {
       steerRef.current = next
       setFacing(next)
-      lockstep.steer(next)
+      duel.steer(next)
     }
   }, [])
 
@@ -268,8 +246,8 @@ export default function SnakeDuel({ onExit }) {
   // Whichever seat this player has, the simulation's own direction wins once
   // the tick catches up with the input.
   useEffect(() => {
-    if (game && lockstepRef.current) {
-      const seat = lockstepRef.current.localSeat
+    if (game && duelRef.current) {
+      const seat = duelRef.current.localSeat
       if (game.snakes[seat]?.dir === steerRef.current) {
         steerRef.current = null
         setFacing(null)
@@ -281,8 +259,8 @@ export default function SnakeDuel({ onExit }) {
 
   useEffect(() => {
     if (!game || game.status !== 'over' || reported || !room) return
-    const lockstep = lockstepRef.current
-    if (!lockstep) return
+    const duel = duelRef.current
+    if (!duel) return
 
     const [hostSnake, guestSnake] = game.snakes
     let winnerRole = 'draw'
@@ -293,8 +271,11 @@ export default function SnakeDuel({ onExit }) {
     }
 
     setReported(true)
-    // Safe for both players to send: the server ignores a match that is
-    // already finished, so it cannot be counted twice.
+    // Only the referee reports. It is the one that decided the outcome, and it
+    // is the only side that cannot still be corrected: the guest's board is a
+    // prediction until the snapshot confirming it lands, so a guest reporting
+    // first could record a result its own referee was about to revise.
+    if (!duel.isHost) return
     reportResult(room.code, playerId, winnerRole, 'Snake duel').catch(() => {})
   }, [game?.status, reported, room?.code, playerId])
 
@@ -306,7 +287,7 @@ export default function SnakeDuel({ onExit }) {
 
   const waiting = room.status === 'WAITING'
   const abandoned = room.status === 'ABANDONED'
-  const seat = lockstepRef.current?.localSeat ?? 0
+  const seat = duelRef.current?.localSeat ?? 0
   const mySnake = game?.snakes[seat]
   const theirSnake = game?.snakes[seat === 0 ? 1 : 0]
   const over = game?.status === 'over'
@@ -415,19 +396,15 @@ export default function SnakeDuel({ onExit }) {
             </div>
           )}
 
-          {/* A dropped connection outranks a stall: it explains the stall. */}
-          {connection !== 'connected' && !over && (
-            <div className="snake-overlay is-stalled">
-              <p className="snake-overlay-copy">
-                {CONNECTION_COPY[connection] ?? 'Reconnecting…'}
-              </p>
-            </div>
+          {/* A badge, not a panel over the board. Neither of these stops play
+              any more - the referee never pauses for a late input - so covering
+              the game to announce them was doing more damage than the hiccup.
+              A dropped connection outranks quiet, because it explains it. */}
+          {!over && connection !== 'connected' && (
+            <p className="snake-badge">{CONNECTION_COPY[connection] ?? 'Reconnecting…'}</p>
           )}
-
-          {connection === 'connected' && stalled && !over && countdown === null && (
-            <div className="snake-overlay is-stalled">
-              <p className="snake-overlay-copy">Waiting for {room.opponentName || 'your friend'}…</p>
-            </div>
+          {!over && connection === 'connected' && stalled && countdown === null && (
+            <p className="snake-badge">Waiting for {room.opponentName || 'your friend'}…</p>
           )}
         </div>
       )}

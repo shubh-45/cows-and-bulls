@@ -5,14 +5,13 @@
 // shut down, and mobile carriers are all behind carrier-grade NAT - so the two
 // browsers had no path to each other and the handshake always failed.
 //
-// Relaying costs nothing that matters here. Lockstep's steering feel is fixed
-// by INPUT_DELAY * TICK_MS (380ms) on the client whatever the transport;
-// latency decides only whether the game STALLS, never how responsive it feels.
-// A hop through the Singapore instance measures ~158ms, comfortably inside that
-// budget, so a relayed duel plays like a direct one and connects every time.
+// Relaying costs little that matters. The referee's snapshots are a few hundred
+// bytes four or five times a second, and a hop through the Singapore instance
+// measures ~158ms - which the guest never waits on, because it plays its own
+// snake immediately and only uses snapshots to stay honest.
 
 // `import.meta.env` is Vite's, and is absent under plain Node - guarded so this
-// module can be exercised outside a browser, the same reason lockstep.js spells
+// module can be exercised outside a browser, the same reason authority.js spells
 // out its ./engine.js import. The transport is the part most worth testing for
 // real, and a test that reimplements it proves nothing.
 const ENV = import.meta.env ?? {}
@@ -50,18 +49,6 @@ export function createDuelLink({ code, playerId, onMessage, onStatus, baseUrl = 
   let keepaliveTimer = null
   let reconnectTimer = null
   let status = 'connecting'
-
-  /**
-   * Every input this client has sent for the current match.
-   *
-   * This is what makes a duel survive a dropped connection. Lockstep can never
-   * fill a missing tick retrospectively - one lost input freezes the match
-   * permanently - and while a socket is down the relay simply discards frames
-   * aimed at it. So inputs are kept and re-sent wholesale whenever the pair is
-   * re-established. Duplicates are free: lockstep's record() keeps the first
-   * value for a tick and ignores the rest, precisely so a resend is harmless.
-   */
-  let history = []
 
   const report = (next) => {
     if (!live) return
@@ -114,9 +101,9 @@ export function createDuelLink({ code, playerId, onMessage, onStatus, baseUrl = 
         everConnected = true
         attempts = 0
         report('connected')
-        // Re-send the match so far. On the first pairing history is empty, so
-        // this costs nothing; after a reconnect it is what unfreezes the game.
-        for (const sent of history) rawSend(JSON.stringify(sent))
+        // Nothing to replay. The referee's next snapshot carries the whole
+        // match state, so a client that missed messages is repaired by simply
+        // receiving the next one - which is why the old input log is gone.
         measureRtt()
       } else if (msg.e === 'waiting') {
         report('waiting')
@@ -199,18 +186,10 @@ export function createDuelLink({ code, playerId, onMessage, onStatus, baseUrl = 
   connect()
 
   return {
-    /** Queues nothing and guarantees nothing on its own - delivery is
-        guaranteed by the history replay above, not by this call. */
+    /** Best effort by design: a dropped message costs at most one tick, and
+        the next snapshot supersedes it. */
     send(message) {
-      if (message?.k === 'i') history.push(message)
       return rawSend(JSON.stringify(message))
-    },
-
-    /** Called when a new match starts, so a rematch does not replay the
-        previous match's inputs into a fresh simulation. */
-    resetHistory() {
-      history = []
-      rtt = null
     },
 
     close() {

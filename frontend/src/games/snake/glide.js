@@ -1,6 +1,6 @@
 // Where to draw a snake part-way between two ticks.
 //
-// Pure and framework-free, like engine.js and lockstep.js, so it can be checked
+// Pure and framework-free, like engine.js and authority.js, so it can be checked
 // from plain Node - which matters here because the thing it produces is
 // impossible to assert by looking at a screenshot.
 //

@@ -69,6 +69,29 @@
   color: var(--snake-p1);
 }
 
+/* Connection notices sit ON the board rather than over it. They used to be a
+   full overlay, which blanked the game to report a hiccup the referee was
+   already playing through - the cure was worse than the problem. */
+.snake-badge {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  margin: 0;
+  max-width: 90%;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(13, 17, 23, 0.82);
+  border: 1px solid var(--panel-border);
+  font-size: 0.7rem;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--muted);
+  pointer-events: none;
+  backdrop-filter: blur(2px);
+}
+
 /* ---- board ---- */
 
 .snake-stage {
