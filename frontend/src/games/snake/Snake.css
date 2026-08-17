@@ -298,6 +298,29 @@
   opacity: 0.75;
 }
 
+/* Diagnostics, shown only when the URL contains "debug". Deliberately plain and
+   unmissable: its whole job is to be read off a phone screen and sent to
+   someone, because the problems that matter here only happen on real devices. */
+.snake-diag {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  z-index: 4;
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.82);
+  border: 1px solid var(--panel-border);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.58rem;
+  line-height: 1.5;
+  white-space: pre;
+  color: #7dd3fc;
+  pointer-events: none;
+  overflow-x: auto;
+}
+
 /* The end-of-run overlay carries more than the others, so it scrolls rather
    than overflowing on a short screen. */
 .snake-overlay.is-result {

@@ -27,6 +27,14 @@ const CONNECTION_COPY = {
   closed: 'Disconnected.',
 }
 
+/**
+ * Turned on by putting "debug" anywhere in the URL, e.g.
+ *   https://shubh-arcade.netlify.app/?debug#/games/snake
+ * Phone-friendly on purpose: this has to be switchable on the devices where the
+ * problem actually happens, without a console.
+ */
+const DEBUG = typeof window !== 'undefined' && window.location.href.includes('debug')
+
 /** Above this a relayed hop starts to be felt on the opponent's snake. */
 const SLOW_PING_MS = 300
 
@@ -52,6 +60,7 @@ export default function SnakeDuel({ onExit }) {
   // the current tick we are. Updated every animation frame, which is what turns
   // a cell-by-cell jump into movement.
   const [glide, setGlide] = useState({ next: null, progress: 0 })
+  const [diag, setDiag] = useState(null)
   const [reported, setReported] = useState(false)
   // Mirrors the direction just accepted so the head can face it immediately,
   // exactly as the solo game does. Without it the input delay reads as lag.
@@ -181,21 +190,48 @@ export default function SnakeDuel({ onExit }) {
     let frame
     let last = performance.now()
     let accumulator = 0
+    // Diagnostics: frames drawn, and frames where the glide sat pinned at 0 or
+    // 1 - which is exactly what a player sees as the board being stuck.
+    let frames = 0
+    let pinned = 0
+    let sampledAt = last
 
     const loop = (now) => {
       accumulator = Math.min(accumulator + (now - last), 500)
       last = now
 
-      // Only the referee advances the match, and it advances exactly one tick
-      // per tick of real time - never waiting on the other player, which is the
-      // whole reason the old model froze. On the guest this is a no-op: its
-      // clock is the arrival of snapshots, and this loop only draws.
-      while (accumulator >= TICK_MS) {
+      // At most ONE tick per animation frame.
+      //
+      // Draining the whole backlog in a single frame was a burst generator: a
+      // phone's rAF stalls all the time - scrolling, browser chrome, low power
+      // - and a 450ms stall made this fire twice back to back, so the referee
+      // emitted two snapshots at once and then went quiet. Its own screen was
+      // fine, because it draws from its own clock; the guest saw a lurch and
+      // then a freeze. Catching up one tick per frame clears the same backlog
+      // in a few 16ms frames instead, which nobody can see.
+      if (accumulator >= TICK_MS) {
         accumulator -= TICK_MS
         duel.tick()
       }
 
-      setGlide({ next: duel.peekNext(), progress: duel.progress() })
+      const progress = duel.progress()
+      setGlide({ next: duel.peekNext(), progress })
+
+      if (DEBUG) {
+        frames += 1
+        if (progress <= 0 || progress >= 1) pinned += 1
+        if (now - sampledAt >= 500) {
+          const seconds = (now - sampledAt) / 1000
+          setDiag({
+            fps: Math.round(frames / seconds),
+            pinned: Math.round((pinned / Math.max(frames, 1)) * 100),
+            beat: duel.stats(),
+          })
+          frames = 0
+          pinned = 0
+          sampledAt = now
+        }
+      }
       // Only the guest can be left waiting, and only if the referee itself has
       // gone quiet - never because of a single late input.
       setStalled(duel.silentFor() > STALL_WARNING_MS)
@@ -408,6 +444,14 @@ export default function SnakeDuel({ onExit }) {
               any more - the referee never pauses for a late input - so covering
               the game to announce them was doing more damage than the hiccup.
               A dropped connection outranks quiet, because it explains it. */}
+          {DEBUG && diag && (
+            <pre className="snake-diag">
+{`${roleLabel(duelRef)}  fps ${diag.fps}  stuck ${diag.pinned}%
+beat ${diag.beat ? `${diag.beat.mean}ms  min ${diag.beat.min}  max ${diag.beat.max}  p90 ${diag.beat.p90}` : '-'}
+late ${diag.beat?.late ?? 0}/${diag.beat?.n ?? 0}   redo ${diag.beat?.rollbacks ?? 0}   ping ${latency ?? '-'}ms`}
+            </pre>
+          )}
+
           {!over && connection !== 'connected' && (
             <p className="snake-badge">{CONNECTION_COPY[connection] ?? 'Reconnecting…'}</p>
           )}
@@ -420,6 +464,11 @@ export default function SnakeDuel({ onExit }) {
       {game && !over && countdown === null && <DuelPad onSteer={steer} />}
     </div>
   )
+}
+
+/** "referee" or "guest" - which side of the duel this screen is. */
+function roleLabel(ref) {
+  return ref.current?.isHost ? 'referee' : 'guest'
 }
 
 function DuelPad({ onSteer }) {

@@ -87,6 +87,26 @@ export function createDuel({ seed, role, onState, send }) {
    */
   let started = isHost
 
+  /**
+   * Cadence measurements, for the diagnostics readout.
+   *
+   * The duel misbehaves on real phones in ways that cannot be reproduced from
+   * a desktop or asserted in a test - a stalled rAF, a throttled tab, a mobile
+   * link. Rather than keep guessing at it, the game measures itself and can be
+   * asked what it saw.
+   */
+  const gaps = []
+  let rollbacks = 0
+  let lastBeatAt = null
+  function recordBeat() {
+    const at = now()
+    if (lastBeatAt !== null) {
+      gaps.push(at - lastBeatAt)
+      if (gaps.length > 60) gaps.shift()
+    }
+    lastBeatAt = at
+  }
+
   function now() {
     return typeof performance !== 'undefined' ? performance.now() : Date.now()
   }
@@ -124,6 +144,7 @@ export function createDuel({ seed, role, onState, send }) {
       state = step(state, inputs)
       past.set(state.tick, state)
       tickStartedAt = now()
+      recordBeat()
       prune()
       broadcast()
       onState?.(state)
@@ -166,6 +187,8 @@ export function createDuel({ seed, role, onState, send }) {
           const wasStarted = started
           state = msg.s
           started = true
+
+          if (advanced) recordBeat()
 
           if (advanced && !wasStarted) {
             // First snapshot of the match: start the clock cleanly rather than
@@ -230,6 +253,7 @@ export function createDuel({ seed, role, onState, send }) {
           if (redone.status === 'over') break
         }
         state = redone
+        rollbacks++
         broadcast()
         onState?.(state)
       }
@@ -267,6 +291,28 @@ export function createDuel({ seed, role, onState, send }) {
      */
     silentFor() {
       return isHost || !started ? 0 : now() - tickStartedAt
+    },
+
+    /**
+     * What the cadence actually looked like. `gap` is the interval between
+     * ticks produced (referee) or snapshots that advanced the match (guest);
+     * it should sit at TICK_MS, and the spread is what a player feels as
+     * stutter.
+     */
+    stats() {
+      if (!gaps.length) return null
+      const sorted = [...gaps].sort((a, b) => a - b)
+      const mean = gaps.reduce((a, b) => a + b, 0) / gaps.length
+      return {
+        n: gaps.length,
+        mean: Math.round(mean),
+        min: Math.round(sorted[0]),
+        max: Math.round(sorted[sorted.length - 1]),
+        p90: Math.round(sorted[Math.floor(sorted.length * 0.9)]),
+        // Beats more than half a tick late: the ones that read as a hitch.
+        late: gaps.filter((g) => g > TICK_MS * 1.5).length,
+        rollbacks,
+      }
     },
 
     get localSeat() {
