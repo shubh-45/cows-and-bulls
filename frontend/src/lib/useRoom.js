@@ -5,6 +5,7 @@ import {
   joinRoom,
   leaveRoom,
   requestRematch,
+  sendGuess,
   sendMove,
   wakeBackend,
 } from './roomsApi'
@@ -119,6 +120,28 @@ export function useRoom(gameType) {
     [room?.code, profile, adopt, refresh]
   )
 
+  /**
+   * One Cows & Bulls turn. Returns the guess as the server scored it, so the
+   * caller can react to its own result without waiting for the next poll.
+   */
+  const submitGuess = useCallback(
+    async (guess) => {
+      if (!room?.code) return null
+      try {
+        const next = await sendGuess(room.code, { playerId: profile.id, guess })
+        adopt(next)
+        return next
+      } catch (err) {
+        setError(err.message)
+        // A rejected guess usually means this client's picture of the room is
+        // stale - most often that the turn already moved on.
+        refresh()
+        return null
+      }
+    },
+    [room?.code, profile, adopt, refresh]
+  )
+
   const rematch = useCallback(async () => {
     if (!room?.code) return
     setBusy('rematch')
@@ -168,6 +191,7 @@ export function useRoom(gameType) {
     create,
     join,
     submitMove,
+    submitGuess,
     rematch,
     leave,
     copyCode,

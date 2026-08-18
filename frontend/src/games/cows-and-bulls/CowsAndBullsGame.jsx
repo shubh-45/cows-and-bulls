@@ -5,6 +5,7 @@ import GuessForm from './components/GuessForm'
 import GuessHistory from './components/GuessHistory'
 import RewardBadge from './components/RewardBadge'
 import RulesPanel from './components/RulesPanel'
+import CowsAndBullsOnline from './CowsAndBullsOnline'
 import StatsLine from '../../components/StatsLine'
 import { useGameResult } from '../../lib/useGameResult'
 import './CowsAndBulls.css'
@@ -17,6 +18,9 @@ export default function CowsAndBullsGame() {
   const [lastResult, setLastResult] = useState(null)
   const [status, setStatus] = useState('loading')
   const [errorMessage, setErrorMessage] = useState('')
+  // Online is a whole different screen rather than a variant of this one: it
+  // has a room, turns and an opponent, and none of the solo state applies.
+  const [online, setOnline] = useState(false)
 
   async function beginNewGame() {
     setStatus('loading')
@@ -68,10 +72,14 @@ export default function CowsAndBullsGame() {
       <header className="page-header">
         <p className="eyebrow">Code-breaking</p>
         <h1>Cows &amp; Bulls</h1>
-        <p className="subtitle">Crack the 3-digit code. No repeated digits, no leading zero.</p>
+        <p className="subtitle">Crack the 3-digit code. Alone, or racing a friend turn by turn.</p>
       </header>
 
       <main className="game-panel">
+        {online ? (
+          <CowsAndBullsOnline onExit={() => setOnline(false)} />
+        ) : (
+          <>
         {status === 'loading' && <p className="empty-state">Starting a new game…</p>}
 
         {status === 'error' && (
@@ -99,6 +107,14 @@ export default function CowsAndBullsGame() {
               <h2>Guess Log</h2>
               <GuessHistory history={history} />
             </section>
+          </>
+        )}
+
+        <div className="cb-modes">
+          <button className="mode-btn" onClick={() => setOnline(true)}>
+            Play a friend online
+          </button>
+        </div>
           </>
         )}
       </main>

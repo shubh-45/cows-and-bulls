@@ -43,6 +43,21 @@ export function sendMove(code, { playerId, index, nextPlayerId, gameOver, winner
   }).then(handle)
 }
 
+/**
+ * One turn of a two-player Cows & Bulls race.
+ *
+ * Its own endpoint rather than sendMove: a move is a board square that both
+ * players replay, a guess is a code the server has to score against a secret
+ * only it holds, and the reply is different for each caller.
+ */
+export function sendGuess(code, { playerId, guess }) {
+  return fetch(`${BASE_URL}/api/rooms/${encodeURIComponent(code)}/guess`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ playerId, guess }),
+  }).then(handle)
+}
+
 // Offering a rematch is a vote: the board only resets once both players ask.
 export function requestRematch(code, playerId) {
   const query = new URLSearchParams({ playerId })

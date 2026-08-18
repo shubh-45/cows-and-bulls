@@ -2,6 +2,7 @@ package com.petproject.cowsandbulls.controller;
 
 import com.petproject.cowsandbulls.dto.CreateRoomRequest;
 import com.petproject.cowsandbulls.dto.JoinRoomRequest;
+import com.petproject.cowsandbulls.dto.RoomGuessRequest;
 import com.petproject.cowsandbulls.dto.RoomMoveRequest;
 import com.petproject.cowsandbulls.dto.RoomStateResponse;
 import com.petproject.cowsandbulls.service.RoomService;
@@ -69,6 +70,22 @@ public class RoomController {
 
     // POST /api/rooms/{code}/rematch -> offer a rematch; the board resets once
     // both players have asked
+    /**
+     * One turn of a two-player Cows &amp; Bulls race.
+     *
+     * <p>Separate from /moves rather than folded into it: a move is an integer
+     * square that both players replay, a guess is a code the server has to
+     * score against a secret only it holds, and the response is different for
+     * each caller. Sharing one endpoint would have meant one of them lying
+     * about what it does.
+     */
+    @PostMapping("/{code}/guess")
+    public RoomStateResponse guess(@PathVariable String code, @Valid @RequestBody RoomGuessRequest request) {
+        return RoomStateResponse.of(
+                roomService.applyGuess(code, request.playerId(), request.guess()),
+                request.playerId());
+    }
+
     @PostMapping("/{code}/rematch")
     public RoomStateResponse rematch(@PathVariable String code, @RequestParam String playerId) {
         return RoomStateResponse.of(roomService.requestRematch(code, playerId), playerId);

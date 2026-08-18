@@ -38,11 +38,16 @@ public class RoomService {
      * connected the whole game runs between them, and the server hears nothing
      * until the result is reported.
      */
+    public static final String COWS_AND_BULLS = "cows-and-bulls";
+
     private static final Map<String, Integer> BOARD_SIZES = Map.of(
             "reversi", 8,
             "tic-tac-toe", 3,
             "snake", 15,
-            "tanks", 15
+            "tanks", 15,
+            // No board at all - the entry exists so the room type is accepted,
+            // and boardSize is never read for it.
+            COWS_AND_BULLS, 0
     );
 
     private final Map<String, Room> rooms = new ConcurrentHashMap<>();
@@ -61,6 +66,7 @@ public class RoomService {
         }
 
         Room room = insertWithUniqueCode(gameType, boardSize, playerId, safeName(playerName, "Host"));
+        if (COWS_AND_BULLS.equals(gameType)) room.setSecret(CowsAndBullsRules.generateSecret());
         log.info("Room {} created for {} by {}", room.getCode(), gameType, room.getHostName());
         return room;
     }
@@ -98,6 +104,73 @@ public class RoomService {
      * knowing the game's rules: the room is playable, the caller is in it, it
      * is their turn, the square exists and is free.
      */
+    /**
+     * One turn of a two-player Cows &amp; Bulls race.
+     *
+     * <p>Both players hunt the SAME code and take alternate turns, but neither
+     * sees the other's guesses - so unlike every other room here, the server
+     * cannot just record the move and let the clients work it out. It holds the
+     * secret, so it has to do the scoring too.
+     *
+     * <p>The match does not end the instant someone cracks it. Turns alternate,
+     * so at the moment the starter solves it the other player has had one turn
+     * fewer, and stopping there would award the match for moving first. The
+     * trailing player is allowed to finish the round; matching the winner on
+     * the same number of turns is a draw.
+     */
+    public Room applyGuess(String code, String playerId, String guess) {
+        Room room = require(code);
+
+        if (!COWS_AND_BULLS.equals(room.getGameType())) {
+            throw new InvalidRoomActionException("This room is not a Cows & Bulls room.");
+        }
+        if (!room.hasPlayer(playerId)) {
+            throw new InvalidRoomActionException("You are not a player in this room.");
+        }
+        if (room.getStatus() == Room.Status.WAITING) {
+            throw new InvalidRoomActionException("Waiting for another player to join.");
+        }
+        if (room.getStatus() == Room.Status.FINISHED) {
+            throw new InvalidRoomActionException("This match has already finished.");
+        }
+        if (room.getStatus() == Room.Status.ABANDONED) {
+            throw new InvalidRoomActionException("Your opponent has left the room.");
+        }
+        if (!playerId.equals(room.getCurrentPlayerId())) {
+            throw new InvalidRoomActionException("It is not your turn.");
+        }
+
+        CowsAndBullsRules.validate(guess);
+
+        int[] result = CowsAndBullsRules.score(room.getSecret(), guess);
+        int cows = result[0];
+        int bulls = result[1];
+
+        String role = room.roleOf(playerId);
+        room.recordSeen(playerId);
+        room.addGuess(playerId, guess, cows, bulls);
+
+        // Hand the turn over first; whether the match then ends is a separate
+        // question from whose go it is.
+        room.setCurrentPlayerId(room.opponentOf(playerId));
+
+        String solvedBy = room.getSolvedByRole();
+        if (solvedBy != null && room.turnsAreEven()) {
+            // Even turns and at least one solve: the round is complete and can
+            // be judged. Both on the same turn count means both cracked it.
+            boolean bothSolved = room.guessesOfRole(Room.HOST).stream().anyMatch(g -> g.bulls() == 3)
+                    && room.guessesOfRole(Room.GUEST).stream().anyMatch(g -> g.bulls() == 3);
+            if (bothSolved) {
+                room.finishMatch(Room.DRAW, "Both cracked " + room.getSecret() + " in the same number of turns.", false);
+            } else {
+                room.finishMatch(solvedBy, "Code was " + room.getSecret() + ".", false);
+            }
+        }
+
+        log.info("Room {}: {} guessed {} -> {} cows {} bulls", code, role, guess, cows, bulls);
+        return room;
+    }
+
     public Room applyMove(String code, String playerId, int index, String nextPlayerId,
                           boolean gameOver, String winnerRole, String resultNote) {
         Room room = require(code);
@@ -179,6 +252,10 @@ public class RoomService {
         room.recordSeen(playerId);
         if (room.voteRematch(playerId)) {
             room.startRematch();
+            // startRematch clears the old secret; a fresh code for a fresh match.
+            if (COWS_AND_BULLS.equals(room.getGameType())) {
+                room.setSecret(CowsAndBullsRules.generateSecret());
+            }
             log.info("Room {}: rematch accepted, starting match {}", room.getCode(), room.getMatchNumber());
         } else {
             room.touch();

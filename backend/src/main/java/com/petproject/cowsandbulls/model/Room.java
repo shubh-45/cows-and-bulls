@@ -31,6 +31,16 @@ public class Room {
 
     public record Move(int index, String playerId, int seq) {}
 
+    /**
+     * One scored guess in a Cows &amp; Bulls room.
+     *
+     * <p>Kept apart from {@link Move} because it is a different shape and a
+     * different secrecy rule. A move is an integer square that BOTH players
+     * must see to rebuild the board; a guess is a code with a score attached
+     * that only the player who made it may ever see.
+     */
+    public record Guess(String guess, int cows, int bulls, int seq) {}
+
     public enum Status { WAITING, PLAYING, FINISHED, ABANDONED }
 
     public static final String HOST = "host";
@@ -73,6 +83,39 @@ public class Room {
     private volatile boolean lastMatchForfeited;
 
     private final Set<String> rematchVotes = ConcurrentHashMap.newKeySet();
+
+    /* ---- Cows & Bulls only ---------------------------------------------- */
+
+    /**
+     * The code both players are racing to break.
+     *
+     * <p>The one piece of game state the server keeps, and it has to: the
+     * entire game is that neither client knows the answer. Everything else in
+     * this class stays rules-free, and for Reversi and Tic-Tac-Toe these
+     * fields are simply never set.
+     */
+    private volatile String secret;
+
+    /**
+     * Each player's guesses, kept apart because they are private.
+     *
+     * <p>Both players race the same code but neither sees the other's work -
+     * so unlike moves, these can never go into one shared list that the state
+     * response hands out wholesale.
+     */
+    private final List<Guess> hostGuesses = new ArrayList<>();
+    private final List<Guess> guestGuesses = new ArrayList<>();
+
+    /**
+     * Set when someone cracks the code, but the match does not end there.
+     *
+     * <p>Whoever guesses first has had strictly more chances by the time the
+     * other has had the same number of turns, so ending immediately would hand
+     * the starter the match for going first. The player who is behind on turns
+     * gets to finish the round, and matching the winner draws it.
+     */
+    private volatile String solvedByRole;
+    private volatile int solvedOnTurn;
 
     // Presence rides on the existing poll: every state fetch stamps the
     // caller's clock, so an opponent who closes their tab goes quiet within a
@@ -117,6 +160,41 @@ public class Room {
     public String getAbandonedByRole() { return abandonedByRole; }
 
     public List<Move> getMoves() { return List.copyOf(moves); }
+
+    public String getSecret() { return secret; }
+    public void setSecret(String secret) { this.secret = secret; }
+    public String getSolvedByRole() { return solvedByRole; }
+    public int getSolvedOnTurn() { return solvedOnTurn; }
+
+    public List<Guess> guessesOfRole(String role) {
+        return List.copyOf(HOST.equals(role) ? hostGuesses : guestGuesses);
+    }
+
+    public int guessCountOfRole(String role) {
+        return (HOST.equals(role) ? hostGuesses : guestGuesses).size();
+    }
+
+    /** Records a scored guess against the player who made it. */
+    public Guess addGuess(String playerId, String guess, int cows, int bulls) {
+        String role = roleOf(playerId);
+        List<Guess> mine = HOST.equals(role) ? hostGuesses : guestGuesses;
+        Guess entry = new Guess(guess, cows, bulls, mine.size() + 1);
+        mine.add(entry);
+        if (solvedByRole == null && bulls == 3) {
+            solvedByRole = role;
+            solvedOnTurn = entry.seq();
+        }
+        touch();
+        return entry;
+    }
+
+    /**
+     * True once both players have had the same number of turns, which is the
+     * only moment a race on one shared code can be settled fairly.
+     */
+    public boolean turnsAreEven() {
+        return hostGuesses.size() == guestGuesses.size();
+    }
 
     public boolean isFull() { return guestId != null; }
 
@@ -224,6 +302,12 @@ public class Room {
     /** Clears the board for the next match and swaps who starts. */
     public void startRematch() {
         moves.clear();
+        hostGuesses.clear();
+        guestGuesses.clear();
+        solvedByRole = null;
+        solvedOnTurn = 0;
+        // The secret is re-seeded by RoomService, which owns the rules.
+        secret = null;
         rematchVotes.clear();
         matchNumber++;
         startingRole = HOST.equals(startingRole) ? GUEST : HOST;

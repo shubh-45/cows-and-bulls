@@ -46,10 +46,29 @@ public record RoomStateResponse(
         boolean opponentWantsRematch,
 
         /** "you" or "them" when someone has left the room for good. */
-        String abandonedBy
+        String abandonedBy,
+
+        /* ---- Cows & Bulls only; null/empty for every other game ---------- */
+
+        /**
+         * ONLY the caller's own guesses.
+         *
+         * <p>Both players race the same code and neither may see the other's
+         * work, so this is resolved per viewer like everything else here. The
+         * opponent's guesses are never serialised into either response - not
+         * hidden in the payload for the client to filter, which would put the
+         * answer one devtools tab away.
+         */
+        List<GuessView> yourGuesses,
+        /** How many turns they have had. A count gives away nothing. */
+        int opponentGuessCount,
+        /** Revealed only once the match is over. */
+        String secret
 ) {
 
     public record MoveView(int seq, int index, String role) {}
+
+    public record GuessView(int seq, String guess, int cows, int bulls) {}
 
     public static RoomStateResponse of(Room room, String viewerId) {
         String role = room.roleOf(viewerId);
@@ -95,7 +114,15 @@ public record RoomStateResponse(
                 room.hasVotedRematch(viewerId),
                 room.hasVotedRematch(opponentId),
 
-                relativeSide(room.getAbandonedByRole(), role)
+                relativeSide(room.getAbandonedByRole(), role),
+
+                role == null ? List.of() : room.guessesOfRole(role).stream()
+                        .map(g -> new GuessView(g.seq(), g.guess(), g.cows(), g.bulls()))
+                        .toList(),
+                role == null ? 0 : room.guessCountOfRole(otherRole),
+                // The code goes out only when there is nothing left to use it
+                // for. While the match is live it is the entire game.
+                room.getStatus() == Room.Status.FINISHED ? room.getSecret() : null
         );
     }
 

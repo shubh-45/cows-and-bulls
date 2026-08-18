@@ -138,3 +138,51 @@
     text-align: left;
   }
 }
+
+
+/* ---- two-player ---- */
+
+/* The mode switch sits under the solo game rather than above it: the solo
+   game is what the page is for, and a toggle at the top pushed the guess
+   field below the fold on a phone. */
+.cb-modes {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.theme-cows-bulls .cb-versus {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.theme-cows-bulls .cb-turn {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.theme-cows-bulls .cb-turn.is-mine {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Their progress, as a number and nothing more. How close they are is theirs
+   to know - showing it would give away how much of the code is solved. */
+.theme-cows-bulls .cb-tally {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+.theme-cows-bulls .cb-online-note {
+  margin: 0 0 12px;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.theme-cows-bulls .cb-online-note strong { color: var(--accent); }

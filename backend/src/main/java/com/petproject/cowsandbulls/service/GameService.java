@@ -67,7 +67,7 @@ public class GameService {
         int bulls = result[1];
 
         Game.Attempt attempt = game.recordAttempt(guess, cows, bulls);
-        boolean won = bulls == 3;
+        boolean won = CowsAndBullsRules.isSolved(bulls);
 
         String rewardTier = null;
         String secretNumber = null;
@@ -129,43 +129,16 @@ public class GameService {
      * skipping anything with a repeated digit).
      */
     private String generateSecret() {
-        List<Integer> digits = new ArrayList<>();
-        for (int i = 0; i <= 9; i++) digits.add(i);
-
-        int first = 1 + random.nextInt(9);          // 1-9, no leading zero
-        digits.remove(Integer.valueOf(first));
-
-        int secondIndex = random.nextInt(digits.size());
-        int second = digits.remove(secondIndex);
-
-        int thirdIndex = random.nextInt(digits.size());
-        int third = digits.remove(thirdIndex);
-
-        return "" + first + second + third;
+        return CowsAndBullsRules.generateSecret();
     }
 
     private void validateGuessRules(String guess) {
-        if (guess.charAt(0) == '0') {
-            throw new InvalidGuessException("guess cannot start with 0");
-        }
-        if (guess.chars().distinct().count() != 3) {
-            throw new InvalidGuessException("guess cannot have repeated digits");
-        }
+        CowsAndBullsRules.validate(guess);
     }
 
     /** returns {cows, bulls} */
     private int[] countCowsAndBulls(String secret, String guess) {
-        int bulls = 0;
-        int cows = 0;
-        for (int i = 0; i < 3; i++) {
-            char g = guess.charAt(i);
-            if (g == secret.charAt(i)) {
-                bulls++;
-            } else if (secret.indexOf(g) >= 0) {
-                cows++;
-            }
-        }
-        return new int[]{cows, bulls};
+        return CowsAndBullsRules.score(secret, guess);
     }
 
     private String rewardTierFor(int attempts) {

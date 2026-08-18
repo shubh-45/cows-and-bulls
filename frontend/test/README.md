@@ -28,6 +28,13 @@ Start it first (see the handover doc), then:
 
     node relay-test.mjs           Snake end to end through the real WebSocket relay
     node tank-relay-test.mjs      tanks end to end, both clients here
+    python3 cows-bulls-room-test.py     two-player Cows & Bulls: turn order,
+                                        scoring, the win/draw rule, and that
+                                        the opponent's guesses never leave the
+                                        server. Also checks the other games and
+                                        the solo game still behave
+    python3 cows-bulls-rematch-test.py  the same room across two matches, where
+                                        the secret has to be re-drawn
 
 ## Manual helpers
 
