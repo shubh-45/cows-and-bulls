@@ -1,3 +1,12 @@
+/* The shell is a column so a page can choose to fill the window exactly rather
+   than run off the bottom of it. Pages that simply grow are unaffected, since
+   a flex child still sizes to its content by default. */
+.site {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
 /* A real header bar rather than a floating link.
    It used to be a bare 900px-wide container, which lined up with the hub but
    sat well to the left of every game page (those are 640px) - the brand
@@ -22,6 +31,15 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+/* A short screen cannot afford a tall header bar. Phones in landscape, and
+   small phones generally, need that height for the page underneath - Snake in
+   particular has to fit a board and a control pad below this. */
+@media (max-height: 700px) {
+  .site-nav-inner {
+    padding: 6px 16px;
+  }
 }
 
 .brand {

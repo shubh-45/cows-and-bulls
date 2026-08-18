@@ -256,10 +256,10 @@ export default function SnakeGame() {
             pressing up sends the snake up, whichever way it was going. A
             reversal is ignored by the engine rather than being fatal. */}
         <div className="snake-pad">
-          <button className="pad-btn pad-up" onClick={() => steer('up')} disabled={over} aria-label="Up">
+          <button className="pad-btn pad-up" onPointerDown={(e) => { e.preventDefault(); steer('up') }} disabled={over} aria-label="Up">
             <DirArrow direction="up" />
           </button>
-          <button className="pad-btn pad-left" onClick={() => steer('left')} disabled={over} aria-label="Left">
+          <button className="pad-btn pad-left" onPointerDown={(e) => { e.preventDefault(); steer('left') }} disabled={over} aria-label="Left">
             <DirArrow direction="left" />
           </button>
           <button
@@ -269,10 +269,10 @@ export default function SnakeGame() {
           >
             {paused ? 'Resume' : 'Pause'}
           </button>
-          <button className="pad-btn pad-right" onClick={() => steer('right')} disabled={over} aria-label="Right">
+          <button className="pad-btn pad-right" onPointerDown={(e) => { e.preventDefault(); steer('right') }} disabled={over} aria-label="Right">
             <DirArrow direction="right" />
           </button>
-          <button className="pad-btn pad-down" onClick={() => steer('down')} disabled={over} aria-label="Down">
+          <button className="pad-btn pad-down" onPointerDown={(e) => { e.preventDefault(); steer('down') }} disabled={over} aria-label="Down">
             <DirArrow direction="down" />
           </button>
         </div>

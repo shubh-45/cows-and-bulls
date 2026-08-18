@@ -10,7 +10,242 @@
   --danger: #f43f5e;
 }
 
+/* ---- fitting a phone ------------------------------------------------------
+
+   Snake is the one page that must not scroll. Every scroll costs a turn: a
+   swipe that begins fractionally off the board pans the page instead of
+   steering, the pad sits below the fold so reaching it means scrolling first,
+   and on a phone that scroll is the difference between rounding a corner and
+   hitting it.
+
+   So the page claims the window and lays itself out as a column: header,
+   scoreboard, then the board taking whatever height is left, then the pad. The
+   board is sized from the space available rather than a fixed width, which is
+   what lets everything land on one screen at any height. Nothing here is
+   phone-only - the same layout simply has more room on a desktop. */
+
+.page.theme-snake {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* A flex item with auto side margins shrink-to-fits rather than stretching,
+     which left the board 42px narrower than the screen it was sizing to. */
+  width: 100%;
+  max-width: 560px;
+  padding: 12px 14px 14px;
+  /* The page itself never scrolls, and a drag that reaches the edge must not
+     hand the gesture to the browser (pull-to-refresh, or the overscroll
+     bounce that makes a swipe feel ignored). */
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.theme-snake .back-link {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.theme-snake .page-header {
+  margin: 0;
+}
+
+.theme-snake .page-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.1;
+}
+
+.theme-snake .game-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+}
+
+/* The duel renders its own subtree inside the panel, so it needs the same
+   treatment or the board stops growing at the panel's content height. */
+.theme-snake .online-room {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* The end-of-match panel sits ON the board, exactly as the solo game's result
+   does. In the flow it was 266px of card above a board that had nowhere left
+   to go - the board collapsed to two pixels and the screen looked broken at
+   the moment you most want to see what just happened. It scrolls within itself
+   if a long series summary needs more room than the board has. */
+.theme-snake .online-room > .reward-banner {
+  position: absolute;
+  z-index: 6;
+  top: 50%;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  max-height: 100%;
+  margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.theme-snake .snake-status {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+/* The board takes the leftover height and stays square.
+   The stage is flex-sized and then positioned, which is what makes its height
+   DEFINITE - a percentage height against a plain flex item resolves against
+   nothing and collapsed the board to its border, six pixels tall. Absolute
+   positioning resolves against the stage's padding box instead, so height:100%
+   means what it says. aspect-ratio keeps it square, and max-width pulls both
+   axes back in when the space left is taller than it is wide. */
+.theme-snake .snake-stage {
+  flex: 1 1 0;
+  min-height: 0;
+  position: relative;
+  max-width: none;
+  /* Lets the board be sized from the space actually left over, on both axes. */
+  container-type: size;
+}
+
+.theme-snake .snake-board {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  /* The largest square that fits, stated directly.
+     Neither `width:100% + max-height` nor `height:100% + max-width` works: an
+     explicit length wins over the aspect ratio, so one axis clamps and the box
+     stops being square - 294x385 one way, 282x158 the other. Container query
+     units resolve against the stage's own box, so min() picks the smaller axis
+     and both sides get the same number. */
+  width: 100%;
+  aspect-ratio: 1;
+  width: min(100cqw, 100cqh);
+  height: min(100cqw, 100cqh);
+}
+
+/* Controls are part of the layout, not something below it. */
+.theme-snake .snake-pad,
+.theme-snake .snake-modes {
+  flex: 0 0 auto;
+  margin: 0 auto;
+}
+
+/* A press on a control must never be interpreted as the start of a scroll.
+   touch-action:none is what stops the browser claiming the gesture, which is
+   the reason a tap could look like it had been ignored. */
+.snake-pad,
+.pad-btn,
+.snake-modes,
+.mode-btn {
+  touch-action: none;
+}
+
+/* On a phone the parts that describe the game give way to the parts that play
+   it, so the board gets the space instead. Keyed on width as well as height,
+   because a portrait phone is not short - it is narrow, and it is still the
+   screen where every pixel of board counts. The start overlay already explains
+   the controls, which is what the rules panel was there for. */
+@media (max-width: 640px), (max-height: 780px) {
+  .theme-snake .page-header .eyebrow,
+  .theme-snake .page-header .subtitle,
+  .theme-snake .snake-rules {
+    display: none;
+  }
+  .theme-snake .page-header h1 {
+    font-size: 1.25rem;
+  }
+  /* Still a comfortable target - about 46px - but not the 60 it was, which
+     cost the board a third of its height. */
+  .theme-snake .pad-btn {
+    padding: 11px 10px;
+  }
+  .theme-snake .snake-pad {
+    gap: 7px;
+    max-width: 260px;
+  }
+  /* Every horizontal pixel here is a pixel of board. */
+  .page.theme-snake {
+    padding: 10px 8px 10px;
+  }
+  .theme-snake .game-panel {
+    padding: 10px 8px;
+  }
+  /* The scoreboard has to stay one line. At 320px it wrapped onto two and took
+     88px - more than half the height of the board it was sitting above. */
+  .theme-snake .snake-status {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+  .theme-snake .snake-score {
+    padding: 4px 9px;
+    gap: 5px;
+  }
+  .theme-snake .snake-score-label {
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+  }
+  .theme-snake .snake-status .snake-score strong {
+    font-size: 1rem;
+  }
+  .theme-snake .snake-status .btn {
+    padding: 5px 10px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+  }
+
+  .theme-snake .room-header {
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+}
+
+/* The duel showed the series standing and the live score as two near identical
+   rows of chips - 101px of header above a board that still had to fit
+   underneath, which cost the duel 80px of board against the solo game on the
+   same phone. Where space is genuinely tight the live score is the one you play
+   from, and the series is what the end-of-match panel exists to report. A
+   laptop has room for both, so this is keyed tighter than the rest. */
+@media (max-width: 640px), (max-height: 700px) {
+  .theme-snake .room-series {
+    display: none;
+  }
+}
+
+@media (max-height: 640px) {
+  .theme-snake .back-link,
+  .theme-snake .page-header {
+    display: none;
+  }
+  .page.theme-snake {
+    gap: 8px;
+    padding: 8px 10px 10px;
+  }
+  .theme-snake .game-panel {
+    gap: 8px;
+    padding: 8px;
+  }
+  .theme-snake .snake-pad {
+    gap: 6px;
+  }
+  .theme-snake .pad-btn {
+    padding: 9px 10px;
+  }
+}
+
 /* ---- status ---- */
+
 
 .snake-status {
   display: flex;

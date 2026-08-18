@@ -477,13 +477,29 @@ function roleLabel(ref) {
   return ref.current?.isHost ? 'referee' : 'guest'
 }
 
+/**
+ * Steering fires on pointer DOWN, not on click.
+ *
+ * A click only lands when the press and release agree, so on a phone the
+ * browser can decide mid-press that the gesture was a scroll and drop the tap
+ * entirely - the button flashes and the snake carries straight on. Acting on
+ * the press removes that whole class of ignored input, and it is a tick
+ * earlier besides.
+ */
+function padPress(handler) {
+  return (event) => {
+    event.preventDefault()
+    handler()
+  }
+}
+
 function DuelPad({ onSteer }) {
   return (
     <div className="snake-pad is-duel">
-      <button className="pad-btn pad-up" onClick={() => onSteer('up')} aria-label="Up">▲</button>
-      <button className="pad-btn pad-left" onClick={() => onSteer('left')} aria-label="Left">◀</button>
-      <button className="pad-btn pad-right" onClick={() => onSteer('right')} aria-label="Right">▶</button>
-      <button className="pad-btn pad-down" onClick={() => onSteer('down')} aria-label="Down">▼</button>
+      <button className="pad-btn pad-up" onPointerDown={padPress(() => onSteer('up'))} aria-label="Up">▲</button>
+      <button className="pad-btn pad-left" onPointerDown={padPress(() => onSteer('left'))} aria-label="Left">◀</button>
+      <button className="pad-btn pad-right" onPointerDown={padPress(() => onSteer('right'))} aria-label="Right">▶</button>
+      <button className="pad-btn pad-down" onPointerDown={padPress(() => onSteer('down'))} aria-label="Down">▼</button>
     </div>
   )
 }
