@@ -41,6 +41,7 @@ export default function TanksGame() {
   const [stalled, setStalled] = useState(false)
   const [reported, setReported] = useState(false)
   const [aim, setAim] = useState(null)
+  const [stickAt, setStickAt] = useState(null)
 
   const linkRef = useRef(null)
   const duelRef = useRef(null)
@@ -48,8 +49,11 @@ export default function TanksGame() {
   const countdownTimerRef = useRef(null)
   // Live control state, read by the tick loop. Kept in refs because a pointer
   // move must not cost a React render - it happens far more often than a tick.
-  const stickRef = useRef(null)
+  const moveRef = useRef({ mx: 0, my: 0 })
   const aimRef = useRef(null)
+  /** True while the aim stick is held; the gun fires as soon as it reloads. */
+  const holdingRef = useRef(false)
+  const keysRef = useRef(new Set())
 
   const matchNumber = room?.matchNumber ?? 1
   const matchRef = useRef(matchNumber)
@@ -101,8 +105,9 @@ export default function TanksGame() {
     setReported(false)
     setStalled(false)
     setVersionGap(false)
-    stickRef.current = null
+    moveRef.current = { mx: 0, my: 0 }
     aimRef.current = null
+    holdingRef.current = false
     setAim(null)
 
     const startAt = Date.now() + COUNTDOWN_MS
@@ -135,17 +140,17 @@ export default function TanksGame() {
       // The stick is translated into tank controls here rather than on every
       // pointer move: a tank turns towards where you are pushing, at a rate the
       // engine caps, so what the loop needs is the CURRENT difference.
-      const me = duel.state.tanks[duel.localSeat]
-      const stick = stickRef.current
-      if (me) {
-        if (stick && stick.power > 0.12) {
-          const diff = wrap(stick.angle - me.heading)
-          duel.setInput({ drive: Math.abs(diff) > 2.2 ? -stick.power : stick.power * Math.max(0.25, 1 - Math.abs(diff)), steer: clamp(diff * 2.6, -1, 1) })
-        } else {
-          duel.setInput({ drive: 0, steer: 0 })
-        }
-        if (aimRef.current !== null) duel.setInput({ aim: aimRef.current })
-      }
+      // Keyboard and thumb feed the same two numbers, so both devices play
+      // exactly the same game.
+      const keys = keysRef.current
+      let kx = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0)
+      let ky = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0)
+      const move = kx || ky ? { mx: kx, my: ky } : moveRef.current
+      duel.setInput({ mx: move.mx, my: move.my })
+      if (aimRef.current !== null) duel.setInput({ aim: aimRef.current })
+      // Holding the aim stick keeps firing as the gun comes back. The reload is
+      // the limit, so there is nothing to spam and no separate button to reach.
+      if (holdingRef.current || keys.has(' ')) duel.setInput({ fire: true })
 
       const interval = duel.tickInterval()
       if (accumulator >= interval) {
@@ -163,31 +168,44 @@ export default function TanksGame() {
 
   const onStick = useCallback((event) => {
     const rect = event.currentTarget.getBoundingClientRect()
-    const cx = rect.left + rect.width / 2
-    const cy = rect.top + rect.height / 2
-    const dx = event.clientX - cx
-    const dy = event.clientY - cy
-    const reach = rect.width / 2
-    stickRef.current = {
-      angle: Math.atan2(dy, dx),
-      power: clamp(Math.hypot(dx, dy) / reach, 0, 1),
-      dx: clamp(dx / reach, -1, 1),
-      dy: clamp(dy / reach, -1, 1),
-    }
+    const dx = event.clientX - (rect.left + rect.width / 2)
+    const dy = event.clientY - (rect.top + rect.height / 2)
+    const reach = rect.width / 2.4
+    const power = Math.min(Math.hypot(dx, dy) / reach, 1)
+    if (power < 0.14) { moveRef.current = { mx: 0, my: 0 }; setStickAt(null); return }
+    const angle = Math.atan2(dy, dx)
+    moveRef.current = { mx: Math.cos(angle) * power, my: Math.sin(angle) * power }
+    setStickAt({ x: Math.cos(angle) * power, y: Math.sin(angle) * power })
   }, [])
 
   const onAim = useCallback((event) => {
     const rect = event.currentTarget.getBoundingClientRect()
-    const cx = rect.left + rect.width / 2
-    const cy = rect.top + rect.height / 2
-    const angle = Math.atan2(event.clientY - cy, event.clientX - cx)
+    const dx = event.clientX - (rect.left + rect.width / 2)
+    const dy = event.clientY - (rect.top + rect.height / 2)
+    if (Math.hypot(dx, dy) < 8) return
+    const angle = Math.atan2(dy, dx)
     aimRef.current = angle
     setAim(angle)
   }, [])
 
-  const fire = useCallback(() => {
-    duelRef.current?.setInput({ fire: true })
-    setAim(null)
+  // Keyboard: WASD or arrows to drive, space to fire, mouse over the board to
+  // aim. The page never scrolls on these, which is why they are preventDefault.
+  useEffect(() => {
+    const down = (e) => {
+      const key = e.key.toLowerCase()
+      if (['w', 'a', 's', 'd', ' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
+        if (e.target?.tagName === 'INPUT') return
+        e.preventDefault()
+        keysRef.current.add(key)
+      }
+    }
+    const up = (e) => keysRef.current.delete(e.key.toLowerCase())
+    window.addEventListener('keydown', down, { passive: false })
+    window.addEventListener('keyup', up)
+    return () => {
+      window.removeEventListener('keydown', down)
+      window.removeEventListener('keyup', up)
+    }
   }, [])
 
   /* ---- reporting ---- */
@@ -237,7 +255,11 @@ export default function TanksGame() {
       : { outcome: 'lose', emoji: '💥', title: 'Knocked out', tier: 'tier-silver', detail: `${room.opponentName || 'They'} took the round` }
   }
 
-  const aimPath = game && aim !== null && me?.alive ? predictShot(game, seat, aim) : null
+  // Always drawn, not only while a thumb is down. Aiming was unclear because
+  // the guide appeared and vanished with the touch, so there was nothing to
+  // line up against between shots.
+  const aimAngle = aim ?? me?.turret ?? null
+  const aimPath = game && aimAngle !== null && me?.alive && !over ? predictShot(game, seat, aimAngle) : null
 
   return (
     <div className="page theme-tanks">
@@ -309,22 +331,32 @@ export default function TanksGame() {
                     className="tk-pad tk-drive"
                     onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); onStick(e) }}
                     onPointerMove={(e) => { if (e.buttons || e.pointerType === 'touch') onStick(e) }}
-                    onPointerUp={() => { stickRef.current = null }}
-                    onPointerCancel={() => { stickRef.current = null }}
+                    onPointerUp={() => { moveRef.current = { mx: 0, my: 0 }; setStickAt(null) }}
+                    onPointerCancel={() => { moveRef.current = { mx: 0, my: 0 }; setStickAt(null) }}
                   >
-                    <span className="tk-pad-label">DRIVE</span>
+                    <span className="tk-pad-label">MOVE</span>
+                    <span
+                      className="tk-knob"
+                      style={stickAt ? { transform: `translate(${stickAt.x * 38}px, ${stickAt.y * 38}px)` } : undefined}
+                    />
                   </div>
 
                   <div
                     className="tk-pad tk-aimpad"
-                    onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); onAim(e) }}
+                    onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); holdingRef.current = true; onAim(e) }}
                     onPointerMove={(e) => { if (e.buttons || e.pointerType === 'touch') onAim(e) }}
-                    onPointerUp={fire}
-                    onPointerCancel={() => setAim(null)}
+                    onPointerUp={() => { holdingRef.current = false }}
+                    onPointerCancel={() => { holdingRef.current = false }}
                   >
                     <span className="tk-pad-label">
-                      {me && me.cooldown > 0 ? 'RELOADING' : 'AIM · RELEASE TO FIRE'}
+                      {me && me.cooldown > 0 ? 'RELOADING' : 'AIM · HOLD TO FIRE'}
                     </span>
+                    {aim !== null && (
+                      <span
+                        className="tk-aim-needle"
+                        style={{ transform: `rotate(${(aim * 180) / Math.PI}deg)` }}
+                      />
+                    )}
                     {me && (
                       <span
                         className="tk-reload"

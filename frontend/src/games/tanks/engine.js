@@ -14,17 +14,18 @@
 /* ---- shape of the world ------------------------------------------------- */
 
 /** Portrait, because that is the shape of the screen it is played on. */
-export const ARENA = { cols: 15, rows: 22, cell: 10, w: 150, h: 220 }
+export const ARENA = { cols: 8, rows: 11, cell: 20, w: 160, h: 220 }
 
 /** 30Hz. Fast enough that steering feels continuous, slow enough that a
     snapshot per tick stays a few KB a second. */
 export const TICK_MS = 33
 const DT = TICK_MS / 1000
 
-export const TANK_R = 4.2
-export const TANK_SPEED = 36        // units per second
-export const TURN_RATE = 3.4        // radians per second
-export const RELOAD_MS = 900
+export const TANK_R = 6.4
+export const TANK_SPEED = 46        // units per second
+/** How fast the hull swings to face where it is going. Cosmetic only now. */
+export const TURN_RATE = 7.5        // radians per second
+export const RELOAD_MS = 850
 
 /**
  * Shells travel; they are not hitscan.
@@ -36,13 +37,13 @@ export const RELOAD_MS = 900
  * lag compensation to feel fair.
  */
 export const SHELL_SPEED = 95
-export const SHELL_R = 1.1
+export const SHELL_R = 1.6
 export const SHELL_LIFE_MS = 2600
 /** One bounce. Enough for bank shots to be the point, few enough that a stray
     shell does not roam the arena for seconds. */
 export const MAX_BOUNCES = 1
 
-export const BLAST_R = 22
+export const BLAST_R = 26
 
 export const CELL = {
   EMPTY: 0,
@@ -112,10 +113,10 @@ export function buildArena(seed) {
     grid[idx(ARENA.cols - 1 - col, ARENA.rows - 1 - row)] = type
   }
 
-  for (let row = 2; row < half; row++) {
+  for (let row = 1; row < half; row++) {
     for (let col = 1; col < ARENA.cols - 1; col++) {
       // Spawn corners stay clear, or a player can be boxed in at the start.
-      if (row < 4 && (col < 4 || col > ARENA.cols - 5)) continue
+      if (row < 2 && (col < 3 || col > ARENA.cols - 4)) continue
       const roll = rand()
       // Steel is permanent, so it is the only thing that can seal a player in.
       // The spawn column is kept free of it for the whole height of the arena,
@@ -124,9 +125,9 @@ export function buildArena(seed) {
       // a route rather than removing it. Without this a quarter of seeds
       // produced an arena where no shell could ever reach the other player.
       const spine = col === SPAWN_COL
-      if (roll < 0.13) place(col, row, spine ? CELL.CRATE : CELL.STEEL)
-      else if (roll < 0.34) place(col, row, CELL.CRATE)
-      else if (roll < 0.40) place(col, row, CELL.BARREL)
+      if (roll < 0.10) place(col, row, spine ? CELL.CRATE : CELL.STEEL)
+      else if (roll < 0.22) place(col, row, CELL.CRATE)
+      else if (roll < 0.27) place(col, row, CELL.BARREL)
     }
   }
 
@@ -138,23 +139,36 @@ export function buildArena(seed) {
   // loop fills, so it overwrote that row's twin and broke the symmetry the
   // whole layout depends on. Its gaps are symmetric about the vertical centre
   // too, or a corridor would open on one side and be walled on the other.
+  const GAPS = new Set([1, ARENA.cols - 2])
+  for (let col = 0; col < ARENA.cols; col++) {
+    if (GAPS.has(col)) continue
+    // The spawn column gets a CRATE rather than steel or a hole. Steel there
+    // would seal the halves apart; a hole is a straight lane from one spawn to
+    // the other and the round opens with a free shot. A crate denies the shot
+    // and can be cleared, so it delays the route instead of removing it.
+    place(col, half - 1, col === SPAWN_COL ? CELL.CRATE : CELL.STEEL)
+  }
+
+  // Placed AFTER the divider, not before: the divider is laid down through the
+  // same mirroring helper and was overwriting barrels that had already been
+  // counted, so a seed could still end up with none.
   // Barrels are the most interesting thing on the board, and at a low spawn
   // chance some seeds produced none at all - an arena with nothing to blow up.
   // A floor guarantees a couple, placed through the mirror like everything else.
   let barrels = grid.filter((c) => c === CELL.BARREL).length
-  for (let attempt = 0; attempt < 40 && barrels < 4; attempt++) {
+  for (let attempt = 0; attempt < 40 && barrels < 2; attempt++) {
     const col = 1 + Math.floor(rand() * (ARENA.cols - 2))
-    const row = 4 + Math.floor(rand() * (half - 5))
+    const row = 2 + Math.floor(rand() * Math.max(1, half - 3))
     if (!inGrid(col, row) || grid[idx(col, row)] !== CELL.EMPTY) continue
     place(col, row, CELL.BARREL)
     barrels += 2
   }
 
-  const GAPS = new Set([1, SPAWN_COL, ARENA.cols - 2])
-  for (let col = 0; col < ARENA.cols; col++) {
-    if (GAPS.has(col)) continue
-    place(col, half - 1, CELL.STEEL)
-  }
+  // Spawns are cleared last, so nothing placed above can bury a tank.
+  const spawnRow = Math.floor((ARENA.h - 26) / ARENA.cell)
+  place(SPAWN_COL, spawnRow, CELL.EMPTY)
+  place(SPAWN_COL, ARENA.rows - 1 - spawnRow, CELL.EMPTY)
+
   return grid
 }
 
@@ -172,8 +186,8 @@ export function createState(seed) {
     rngState: seed >>> 0,
     grid: buildArena(seed),
     tanks: [
-      makeTank(0, ARENA.w * 0.5, ARENA.h - 22, -Math.PI / 2),
-      makeTank(1, ARENA.w * 0.5, 22, Math.PI / 2),
+      makeTank(0, ARENA.w * 0.5, ARENA.h - 26, -Math.PI / 2),
+      makeTank(1, ARENA.w * 0.5, 26, Math.PI / 2),
     ],
     shells: [],
     nextShellId: 1,
@@ -308,22 +322,31 @@ export function step(state, inputs = {}) {
   for (const tank of next.tanks) {
     if (!tank.alive) continue
     const input = inputs[tank.id] ?? {}
-    const steer = clamp(input.steer ?? 0, -1, 1)
-    const drive = clamp(input.drive ?? 0, -1, 1)
-
-    tank.heading = wrap(tank.heading + steer * TURN_RATE * DT)
     if (typeof input.aim === 'number') tank.turret = wrap(input.aim)
 
-    if (drive !== 0) {
-      const speed = TANK_SPEED * drive * DT
+    // The tank goes where you push it. The first version steered and
+    // throttled like a real tank, which reads as authentic and plays as
+    // awkward - on a phone you spend the round fighting the turn rate instead
+    // of the other player. The hull still swings round to face the direction
+    // of travel, so it looks like a tank; it just no longer handles like one.
+    let mx = clamp(input.mx ?? 0, -1, 1)
+    let my = clamp(input.my ?? 0, -1, 1)
+    const push = Math.hypot(mx, my)
+    if (push > 1) { mx /= push; my /= push }
+
+    if (push > 0.08) {
       const moved = slide(
         next.grid,
-        tank.x + Math.cos(tank.heading) * speed,
-        tank.y + Math.sin(tank.heading) * speed,
+        tank.x + mx * TANK_SPEED * DT,
+        tank.y + my * TANK_SPEED * DT,
         TANK_R
       )
       tank.x = moved.x
       tank.y = moved.y
+      const want = Math.atan2(my, mx)
+      const diff = wrap(want - tank.heading)
+      const swing = TURN_RATE * DT
+      tank.heading = wrap(tank.heading + clamp(diff, -swing, swing))
     }
 
     tank.cooldown = Math.max(0, tank.cooldown - TICK_MS)

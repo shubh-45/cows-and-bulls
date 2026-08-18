@@ -62,8 +62,8 @@
   overscroll-behavior: contain;
 }
 
-/* The arena is 15x22 cells, so unlike Snake it is already the shape of a phone
-   and can simply take the height it is given. */
+/* The arena is 8x11 cells - already the shape of a phone, so unlike Snake it
+   can simply take the height it is given. */
 .tk-stage {
   position: relative;
   flex: 1 1 0;
@@ -76,8 +76,8 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(100cqw, calc(100cqh * 15 / 22));
-  height: min(100cqh, calc(100cqw * 22 / 15));
+  width: min(100cqw, calc(100cqh * 160 / 220));
+  height: min(100cqh, calc(100cqw * 220 / 160));
   border-radius: 10px;
   /* The arena edge is steel, exactly like the pillars inside it, so one
      material means one rule: shells bounce off both. */
@@ -309,3 +309,32 @@ body.snake-immersive .theme-tanks .game-panel {
 body.snake-immersive .theme-tanks .online-room { gap: 0; }
 body.snake-immersive .tk-layer { border-radius: 0; }
 body.snake-immersive .tk-controls { padding: 0 10px 10px; margin-top: 6px; }
+
+/* The stick shows where your thumb has pushed it, so a control you cannot see
+   under your own thumb still gives feedback. */
+.tk-knob {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tk-p1) 26%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tk-p1) 70%, transparent);
+  transform: translate(0, 0);
+  transition: transform 60ms linear;
+  pointer-events: none;
+}
+
+/* Which way the gun is pointing, echoed on the pad itself. */
+.tk-aim-needle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 40px;
+  height: 3px;
+  margin-top: -1.5px;
+  border-radius: 2px;
+  background: var(--tk-p1);
+  transform-origin: 0 50%;
+  opacity: 0.85;
+  pointer-events: none;
+}

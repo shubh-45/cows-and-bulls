@@ -19,14 +19,27 @@ export const PROTOCOL_VERSION = 1
 export const HOST_SEAT = 0
 export const GUEST_SEAT = 1
 
-/** How far back the referee will redo history to honour a late input. */
-const MAX_REWIND = 4
-/** States and inputs kept, a little more than MAX_REWIND. */
-const HISTORY = 12
-/** How far the guest's own clock may run past the referee's last word. */
+/**
+ * How far the guest's own clock may run past the referee's last word.
+ *
+ * This is the bug that stopped the guest's tank moving at all. The first
+ * version tagged each input with a tick and had the referee rewind to honour
+ * it - Snake's scheme, where a turn is a rare discrete event. At a 33ms tick
+ * with ~80ms each way, every input arrived two or three ticks after the tick it
+ * named, and past a small rewind window they were simply DISCARDED. The guest
+ * pressed, nothing happened, and its tank sat still on both screens.
+ *
+ * Continuous input does not need any of that. The referee applies whatever the
+ * guest last said, on whatever tick it happens to be on, and holds it until it
+ * hears otherwise - so a late or lost packet costs a fraction of a tick of
+ * accuracy instead of the whole instruction. The guest predicts a couple of
+ * ticks ahead so its own tank answers immediately, and the snapshots correct it.
+ */
 const MAX_LEAD = 3
+/** Kept only so the guest can replay its own recent inputs when predicting. */
+const HISTORY = 12
 
-const NEUTRAL = { drive: 0, steer: 0, aim: null, fire: false }
+const NEUTRAL = { mx: 0, my: 0, aim: null, fire: false }
 
 /**
  * @param {object} options
@@ -45,11 +58,6 @@ export function createDuel({ seed, role, onState, send }) {
   let auth = state
   let localTick = 0
 
-  /** Host: the state at each tick, and the inputs that produced it, for rewind. */
-  const past = new Map([[0, state]])
-  const applied = new Map()
-  /** Host: guest inputs tagged for ticks not yet reached. */
-  const scheduled = new Map()
   /** Guest: this player's own inputs, replayed when predicting forward. */
   const mine = new Map()
 
@@ -68,10 +76,7 @@ export function createDuel({ seed, role, onState, send }) {
   }
 
   function prune(upTo) {
-    for (const k of past.keys()) if (k < upTo - HISTORY) past.delete(k)
-    for (const k of applied.keys()) if (k < upTo - HISTORY) applied.delete(k)
     for (const k of mine.keys()) if (k < upTo - HISTORY) mine.delete(k)
-    for (const k of scheduled.keys()) if (k < upTo - HISTORY) scheduled.delete(k)
   }
 
   // Field names are spelled out rather than squeezed to one letter. The first
@@ -150,20 +155,13 @@ export function createDuel({ seed, role, onState, send }) {
     tick() {
       if (isHost) {
         if (state.status === 'over') return
-        const target = state.tick + 1
-        if (scheduled.has(target)) heldRemote = scheduled.get(target)
         const inputs = { [HOST_SEAT]: myInput, [GUEST_SEAT]: heldRemote }
-        applied.set(target, inputs)
-        scheduled.delete(target)
-
         state = step(state, inputs)
-        past.set(state.tick, state)
         // Firing is an edge, not a state. Left set, a held input would empty
         // the magazine on its own every time the reload finished.
         myInput = { ...myInput, fire: false }
         heldRemote = { ...heldRemote, fire: false }
         tickStartedAt = now()
-        prune(state.tick)
         broadcast(gridTouched(state))
         onState?.(state)
         return
@@ -173,7 +171,7 @@ export function createDuel({ seed, role, onState, send }) {
       if (localTick - auth.tick >= MAX_LEAD) return
       localTick += 1
       mine.set(localTick, { ...myInput })
-      send?.({ k: 'I', v: PROTOCOL_VERSION, t: localTick, i: myInput })
+      send?.({ k: 'I', v: PROTOCOL_VERSION, i: myInput })
       myInput = { ...myInput, fire: false }
       rebuild()
       tickStartedAt = now()
@@ -208,29 +206,10 @@ export function createDuel({ seed, role, onState, send }) {
       }
 
       if (msg.k === 'I' && isHost) {
-        const target = msg.t
         if (state.status === 'over') return
-        if (target > state.tick) { scheduled.set(target, msg.i); return }
-        if (target < state.tick - MAX_REWIND) return
-
-        // Late, but recent enough to honour at the tick it was meant for, so
-        // the guest's own prediction stays true rather than being corrected.
-        const base = past.get(target - 1)
-        if (!base) return
-        let redone = base
-        for (let t = target; t <= state.tick; t++) {
-          const inputs = { ...(applied.get(t) ?? {}) }
-          if (t === target) inputs[GUEST_SEAT] = msg.i
-          else if (t > target) inputs[GUEST_SEAT] = { ...msg.i, fire: false }
-          applied.set(t, inputs)
-          redone = step(redone, inputs)
-          past.set(t, redone)
-          if (redone.status === 'over') break
-        }
-        state = redone
-        heldRemote = { ...msg.i, fire: false }
-        broadcast(true)
-        onState?.(state)
+        // Whatever they last said, from now until they say something else.
+        heldRemote = { ...msg.i }
+        if (msg.i.fire) heldRemote.fire = true
       }
     },
 
