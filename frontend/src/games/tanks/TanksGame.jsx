@@ -6,7 +6,7 @@ import { reportResult } from '../../lib/roomsApi'
 import { useRoom } from '../../lib/useRoom'
 import { useImmersive } from '../../lib/useImmersive'
 import TankBoard from './Board'
-import { predictShot, seedFromString } from './engine'
+import { ARENA, predictShot, seedFromString } from './engine'
 import { PROTOCOL_VERSION, createDuel } from './authority'
 import './Tanks.css'
 
@@ -54,6 +54,7 @@ export default function TanksGame() {
   /** True while the aim stick is held; the gun fires as soon as it reloads. */
   const holdingRef = useRef(false)
   const keysRef = useRef(new Set())
+  const stageRef = useRef(null)
 
   const matchNumber = room?.matchNumber ?? 1
   const matchRef = useRef(matchNumber)
@@ -188,6 +189,25 @@ export default function TanksGame() {
     setAim(angle)
   }, [])
 
+  /**
+   * Aim by pointing at the board. Only for a mouse: a finger on the board would
+   * fight the pads, and on a phone the right-hand stick is the better control.
+   */
+  const onBoardAim = useCallback((event) => {
+    if (event.pointerType === 'touch') return
+    const duel = duelRef.current
+    const svg = stageRef.current?.querySelector('.tk-layer')
+    if (!duel || !svg) return
+    const me = duel.state.tanks[duel.localSeat]
+    if (!me?.alive) return
+    const rect = svg.getBoundingClientRect()
+    const ax = ((event.clientX - rect.left) / rect.width) * ARENA.w
+    const ay = ((event.clientY - rect.top) / rect.height) * ARENA.h
+    const angle = Math.atan2(ay - me.y, ax - me.x)
+    aimRef.current = angle
+    setAim(angle)
+  }, [])
+
   // Keyboard: WASD or arrows to drive, space to fire, mouse over the board to
   // aim. The page never scrolls on these, which is why they are preventDefault.
   useEffect(() => {
@@ -300,7 +320,14 @@ export default function TanksGame() {
 
           {game && (
             <>
-              <div className="tk-stage">
+              <div
+                className="tk-stage"
+                ref={stageRef}
+                onPointerMove={onBoardAim}
+                onPointerDown={(e) => { if (e.pointerType !== 'touch') { holdingRef.current = true; onBoardAim(e) } }}
+                onPointerUp={(e) => { if (e.pointerType !== 'touch') holdingRef.current = false }}
+                onPointerLeave={(e) => { if (e.pointerType !== 'touch') holdingRef.current = false }}
+              >
                 <TankBoard
                   state={game}
                   localSeat={seat}
@@ -334,11 +361,12 @@ export default function TanksGame() {
                     onPointerUp={() => { moveRef.current = { mx: 0, my: 0 }; setStickAt(null) }}
                     onPointerCancel={() => { moveRef.current = { mx: 0, my: 0 }; setStickAt(null) }}
                   >
-                    <span className="tk-pad-label">MOVE</span>
+                    <span className="tk-ring" />
                     <span
                       className="tk-knob"
-                      style={stickAt ? { transform: `translate(${stickAt.x * 38}px, ${stickAt.y * 38}px)` } : undefined}
+                      style={stickAt ? { transform: `translate(${stickAt.x * 34}px, ${stickAt.y * 34}px)` } : undefined}
                     />
+                    <span className="tk-pad-label">MOVE</span>
                   </div>
 
                   <div
@@ -348,15 +376,15 @@ export default function TanksGame() {
                     onPointerUp={() => { holdingRef.current = false }}
                     onPointerCancel={() => { holdingRef.current = false }}
                   >
-                    <span className="tk-pad-label">
-                      {me && me.cooldown > 0 ? 'RELOADING' : 'AIM · HOLD TO FIRE'}
-                    </span>
+                    <span className="tk-ring" />
                     {aim !== null && (
                       <span
                         className="tk-aim-needle"
                         style={{ transform: `rotate(${(aim * 180) / Math.PI}deg)` }}
                       />
                     )}
+                    <span className="tk-knob is-aim" />
+                    <span className="tk-pad-label">AIM</span>
                     {me && (
                       <span
                         className="tk-reload"
@@ -366,6 +394,11 @@ export default function TanksGame() {
                   </div>
                 </div>
               )}
+
+              <p className="tk-keys">
+                <strong>WASD</strong> or arrows to move · <strong>mouse</strong> to aim ·
+                <strong> click</strong> or <strong>space</strong> to fire
+              </p>
             </>
           )}
         </div>

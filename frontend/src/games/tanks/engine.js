@@ -21,7 +21,7 @@ export const ARENA = { cols: 8, rows: 11, cell: 20, w: 160, h: 220 }
 export const TICK_MS = 33
 const DT = TICK_MS / 1000
 
-export const TANK_R = 6.4
+export const TANK_R = 7.2
 export const TANK_SPEED = 46        // units per second
 /** How fast the hull swings to face where it is going. Cosmetic only now. */
 export const TURN_RATE = 7.5        // radians per second

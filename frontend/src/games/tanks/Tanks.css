@@ -338,3 +338,77 @@ body.snake-immersive .tk-controls { padding: 0 10px 10px; margin-top: 6px; }
   opacity: 0.85;
   pointer-events: none;
 }
+
+/* ---- the pads read as joysticks ---- */
+
+.tk-pad {
+  border-radius: 50%;
+  width: 132px;
+  height: 132px;
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tk-controls {
+  justify-items: center;
+  align-items: center;
+}
+
+/* The base the knob sits in, so the control looks like something you push
+   rather than a rectangle that happens to respond. */
+.tk-ring {
+  position: absolute;
+  inset: 12px;
+  border-radius: 50%;
+  border: 1px dashed color-mix(in srgb, var(--tk-wall) 45%, transparent);
+  pointer-events: none;
+}
+
+.tk-knob {
+  position: absolute;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tk-p1) 30%, rgba(13, 17, 23, 0.9));
+  border: 2px solid color-mix(in srgb, var(--tk-p1) 80%, transparent);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
+  transform: translate(0, 0);
+  transition: transform 60ms linear;
+  pointer-events: none;
+}
+
+.tk-knob.is-aim {
+  width: 26px;
+  height: 26px;
+  background: rgba(13, 17, 23, 0.92);
+  border-color: color-mix(in srgb, var(--tk-wall) 70%, transparent);
+}
+
+.tk-pad-label {
+  position: absolute;
+  bottom: 8px;
+  left: 0;
+  right: 0;
+  font-size: 0.52rem;
+}
+
+.tk-reload { border-radius: 0 0 999px 999px; }
+
+/* Keyboard reminder, only where there is a pointer that could use it. */
+.tk-keys {
+  display: none;
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 0.68rem;
+  color: var(--muted);
+  opacity: 0.75;
+}
+.tk-keys strong { color: var(--tk-p1); font-weight: 500; }
+
+@media (hover: hover) and (pointer: fine) {
+  .tk-keys { display: block; }
+  /* With a mouse on the board and keys for movement, the thumb pads are a
+     fallback rather than the main control, so they take less room. */
+  .tk-pad { width: 104px; height: 104px; }
+  .tk-stage { cursor: crosshair; }
+}
