@@ -126,7 +126,7 @@ export function buildArena(seed) {
       const spine = col === SPAWN_COL
       if (roll < 0.13) place(col, row, spine ? CELL.CRATE : CELL.STEEL)
       else if (roll < 0.34) place(col, row, CELL.CRATE)
-      else if (roll < 0.365) place(col, row, CELL.BARREL)
+      else if (roll < 0.40) place(col, row, CELL.BARREL)
     }
   }
 
@@ -138,6 +138,18 @@ export function buildArena(seed) {
   // loop fills, so it overwrote that row's twin and broke the symmetry the
   // whole layout depends on. Its gaps are symmetric about the vertical centre
   // too, or a corridor would open on one side and be walled on the other.
+  // Barrels are the most interesting thing on the board, and at a low spawn
+  // chance some seeds produced none at all - an arena with nothing to blow up.
+  // A floor guarantees a couple, placed through the mirror like everything else.
+  let barrels = grid.filter((c) => c === CELL.BARREL).length
+  for (let attempt = 0; attempt < 40 && barrels < 4; attempt++) {
+    const col = 1 + Math.floor(rand() * (ARENA.cols - 2))
+    const row = 4 + Math.floor(rand() * (half - 5))
+    if (!inGrid(col, row) || grid[idx(col, row)] !== CELL.EMPTY) continue
+    place(col, row, CELL.BARREL)
+    barrels += 2
+  }
+
   const GAPS = new Set([1, SPAWN_COL, ARENA.cols - 2])
   for (let col = 0; col < ARENA.cols; col++) {
     if (GAPS.has(col)) continue
@@ -393,4 +405,68 @@ const wrap = (a) => {
   while (r > Math.PI) r -= Math.PI * 2
   while (r < -Math.PI) r += Math.PI * 2
   return r
+}
+
+/* ---- aiming -------------------------------------------------------------- */
+
+/**
+ * Where a shell fired from here would actually go.
+ *
+ * A walk of the SAME rules step() uses, not a closed-form ray cast, and it
+ * takes the whole state rather than just the grid so it can stop on a tank and
+ * expire on the same tick a real shell would. If the guide and the shell ever
+ * disagreed, the game would be lying about the one thing it asks the player to
+ * be good at - and the first version did, walking straight through the tank
+ * that fired it on the way back from a wall.
+ *
+ * Returns the points of the path for the UI to draw as a polyline.
+ */
+export function predictShot(state, seat, angle, { maxBounces = MAX_BOUNCES } = {}) {
+  const shooter = state.tanks[seat]
+  if (!shooter) return []
+  const muzzle = TANK_R + SHELL_R + 1.6
+  let px = shooter.x + Math.cos(angle) * muzzle
+  let py = shooter.y + Math.sin(angle) * muzzle
+  let vx = Math.cos(angle) * SHELL_SPEED
+  let vy = Math.sin(angle) * SHELL_SPEED
+  let life = SHELL_LIFE_MS
+  let bounces = 0
+
+  const points = [{ x: px, y: py }]
+
+  for (;;) {
+    life -= TICK_MS
+    if (life <= 0) { points.push({ x: px, y: py, end: 'spent' }); return points }
+
+    let done = false
+    for (const axis of ['x', 'y']) {
+      const before = axis === 'x' ? px : py
+      if (axis === 'x') px += vx * DT
+      else py += vy * DT
+      if (!blocked(state.grid, px, py)) continue
+
+      const hit = cellAt(state.grid, px, py)
+      if (!hit.outside && hit.type !== CELL.STEEL) {
+        points.push({ x: px, y: py, end: 'break' })
+        return points
+      }
+      if (axis === 'x') px = before
+      else py = before
+      points.push({ x: px, y: py, bounce: true })
+      if (axis === 'x') vx = -vx
+      else vy = -vy
+      bounces += 1
+      if (bounces > maxBounces) { done = true; break }
+    }
+    if (done) { points.push({ x: px, y: py, end: 'spent' }); return points }
+
+    for (const tank of state.tanks) {
+      if (!tank.alive) continue
+      if (tank.id === seat && bounces === 0) continue
+      if (Math.hypot(tank.x - px, tank.y - py) <= TANK_R + SHELL_R) {
+        points.push({ x: px, y: py, end: 'hit', id: tank.id })
+        return points
+      }
+    }
+  }
 }

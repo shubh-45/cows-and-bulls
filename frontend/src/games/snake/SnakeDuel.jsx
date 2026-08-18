@@ -6,7 +6,7 @@ import { useRoom } from '../../lib/useRoom'
 import SnakeBoard, { steerFrom } from './Board'
 import { DEATH, seedFromString } from './engine'
 import { PROTOCOL_VERSION, createDuel } from './authority'
-import { useImmersive } from './useImmersive'
+import { useImmersive } from '../../lib/useImmersive'
 import './Snake.css'
 
 const COUNTDOWN_MS = 3000

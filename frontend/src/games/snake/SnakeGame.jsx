@@ -6,7 +6,7 @@ import { useGameResult } from '../../lib/useGameResult'
 import SnakeBoard, { steerFrom } from './Board'
 import SnakeDuel from './SnakeDuel'
 import { DEATH, createState, step, tickInterval } from './engine'
-import { toggleFullscreen, useImmersive } from './useImmersive'
+import { toggleFullscreen, useImmersive } from '../../lib/useImmersive'
 import './Snake.css'
 
 const KEY_DIRECTIONS = {

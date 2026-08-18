@@ -1,0 +1,311 @@
+.theme-tanks {
+  --accent: #4ade80;
+  --tk-p1: #4ade80;
+  --tk-p1-lit: #86efac;
+  --tk-p1-edge: #eaffef;
+  --tk-p2: #38bdf8;
+  --tk-p2-lit: #7dd3fc;
+  --tk-p2-edge: #e0f6ff;
+  --tk-floor: #0d1117;
+  --tk-wall: #8b98a8;
+  --tk-spark: #fde68a;
+  --tk-blast: #f472b6;
+}
+
+/* ---- page: the same fit-the-screen layout Snake uses ---- */
+
+.page.theme-tanks {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 560px;
+  padding: 12px 14px 14px;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.theme-tanks .back-link { margin: 0; font-size: 0.8rem; }
+.theme-tanks .page-header { margin: 0; }
+.theme-tanks .page-header h1 { margin: 0; font-size: 1.5rem; line-height: 1.1; }
+
+.theme-tanks .game-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 12px;
+}
+
+.theme-tanks .online-room {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.theme-tanks .online-room > .reward-banner {
+  position: absolute;
+  z-index: 6;
+  top: 50%;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  max-height: 100%;
+  margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* The arena is 15x22 cells, so unlike Snake it is already the shape of a phone
+   and can simply take the height it is given. */
+.tk-stage {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  container-type: size;
+}
+
+.tk-layer {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(100cqw, calc(100cqh * 15 / 22));
+  height: min(100cqh, calc(100cqw * 22 / 15));
+  border-radius: 10px;
+  /* The arena edge is steel, exactly like the pillars inside it, so one
+     material means one rule: shells bounce off both. */
+  border: 3px solid color-mix(in srgb, var(--tk-wall) 62%, transparent);
+  background: var(--tk-floor);
+  box-shadow: inset 0 0 30px -8px rgba(0, 0, 0, 0.9);
+  touch-action: none;
+}
+
+.tk-floor {
+  fill: var(--tk-floor);
+}
+
+/* ---- obstacles ---- */
+
+.tk-crate-shell { fill: #3d2c1c; }
+.tk-crate-face  { fill: #54381f; }
+.tk-crate-seam  { stroke: #7d5730; stroke-width: 0.5; fill: none; }
+.tk-crate-lit   { fill: #8a6136; opacity: 0.85; }
+.tk-crate-bolt  { fill: #c89b62; }
+.tk-crate-crack { stroke: #fbbf24; stroke-width: 0.55; fill: none; stroke-linecap: round; }
+.tk-crate.is-cracked .tk-crate-face { fill: #4a3019; }
+
+.tk-steel-body  { fill: #3b4757; }
+.tk-steel-lit   { fill: #6b7f94; opacity: 0.8; }
+.tk-steel-line  { stroke: #5b6b7d; stroke-width: 0.35; opacity: 0.7; fill: none; }
+.tk-steel-rivet { fill: #222c38; stroke: #8b98a8; stroke-width: 0.35; }
+
+.tk-barrel-body { fill: #3a1a28; stroke: var(--tk-blast); stroke-width: 0.5; }
+.tk-barrel-ring { fill: none; stroke: var(--tk-blast); stroke-width: 0.3; opacity: 0.45; }
+.tk-barrel-core {
+  fill: #f9a8d4;
+  animation: tk-armed 1.4s ease-in-out infinite;
+}
+@keyframes tk-armed {
+  0%, 100% { opacity: 0.75; transform: scale(0.9); }
+  50%      { opacity: 1;    transform: scale(1.2); }
+}
+.tk-barrel-core { transform-box: fill-box; transform-origin: center; }
+
+/* ---- tanks ---- */
+
+.tk-tread      { fill: #0a0d12; }
+.tk-tread-rung { stroke: #59606b; stroke-width: 0.28; }
+.tk-hull-plate { fill: #0d1117; opacity: 0.34; }
+.tk-hatch      { fill: #0d1117; opacity: 0.55; }
+
+.tk-p1 .tk-hull   { fill: var(--tk-p1); }
+.tk-p1 .tk-turret { fill: var(--tk-p1-lit); }
+.tk-p1 .tk-gun    { fill: var(--tk-p1-edge); }
+.tk-p2 .tk-hull   { fill: var(--tk-p2); }
+.tk-p2 .tk-turret { fill: var(--tk-p2-lit); }
+.tk-p2 .tk-gun    { fill: var(--tk-p2-edge); }
+
+/* Which tank is mine, answerable at a glance and at any moment - the same
+   problem the Snake duel had, solved the same way. */
+.tk-mine-ring {
+  fill: none;
+  stroke: #f8fafc;
+  stroke-width: 0.45;
+  opacity: 0.85;
+  animation: tk-mine 1.8s ease-in-out infinite;
+}
+@keyframes tk-mine { 0%, 100% { opacity: 0.85; } 50% { opacity: 0.3; } }
+
+.tk-tank.is-dead { filter: grayscale(0.9); opacity: 0.45; }
+
+/* ---- shells and aim ---- */
+
+.tk-shell line   { stroke: #eaffef; stroke-width: 1.5; stroke-linecap: round; opacity: 0.4; }
+.tk-shell circle { fill: #ffffff; }
+
+.tk-aim polyline {
+  fill: none;
+  stroke: var(--tk-p1);
+  stroke-width: 0.6;
+  stroke-dasharray: 3 3;
+  opacity: 0.7;
+  stroke-linecap: round;
+}
+.tk-aim-bounce { fill: none; stroke: var(--tk-p1); stroke-width: 0.5; opacity: 0.9; }
+
+/* ---- effects ---- */
+
+.fx-break, .fx-blast, .fx-kill, .fx-spark, .fx-muzzle {
+  fill: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  pointer-events: none;
+}
+.fx-break  { stroke: #fbbf24; stroke-width: 0.8; animation: tk-ring 0.55s ease-out forwards; }
+.fx-blast  { stroke: var(--tk-blast); stroke-width: 1.2; animation: tk-ring-big 0.7s ease-out forwards; }
+.fx-kill   { stroke: #ffffff; stroke-width: 1.2; animation: tk-ring-big 0.8s ease-out forwards; }
+.fx-spark  { stroke: var(--tk-spark); stroke-width: 0.6; animation: tk-ring 0.35s ease-out forwards; }
+.fx-muzzle { fill: var(--tk-spark); stroke: none; animation: tk-flash 0.22s ease-out forwards; }
+
+@keyframes tk-ring     { from { transform: scale(0.3); opacity: 1; } to { transform: scale(2.4); opacity: 0; } }
+@keyframes tk-ring-big { from { transform: scale(0.2); opacity: 1; } to { transform: scale(4);   opacity: 0; } }
+@keyframes tk-flash    { from { transform: scale(0.4); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .tk-barrel-core, .tk-mine-ring { animation: none; }
+}
+
+/* ---- overlays ---- */
+
+.tk-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  border-radius: 10px;
+  background: rgba(13, 17, 23, 0.82);
+}
+.tk-countdown { margin: 0; font-family: var(--font-display); font-size: 3rem; color: var(--tk-p1); }
+.tk-overlay-copy { margin: 0; font-size: 0.85rem; color: var(--muted); }
+.tk-you-word { color: var(--tk-p1); }
+
+.tk-badge {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  margin: 0;
+  max-width: 90%;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(13, 17, 23, 0.85);
+  border: 1px solid var(--panel-border);
+  font-size: 0.7rem;
+  text-align: center;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+/* ---- controls ---- */
+
+.tk-controls {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.tk-pad {
+  position: relative;
+  height: 108px;
+  border-radius: 14px;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.035);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  /* Without this a drag on the pad scrolls the page instead of steering - the
+     exact problem that made Snake unplayable on a phone. */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: pointer;
+}
+
+.tk-pad-label {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  opacity: 0.65;
+  pointer-events: none;
+  text-align: center;
+  padding: 0 8px;
+}
+
+.tk-drive   { background: radial-gradient(circle at center, rgba(74, 222, 128, 0.10), transparent 68%); }
+.tk-aimpad  { background: radial-gradient(circle at center, rgba(248, 250, 252, 0.08), transparent 68%); }
+
+/* Reload, shown where the thumb already is rather than up in the HUD. */
+.tk-reload {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--tk-p1);
+  transform-origin: left center;
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+@media (max-width: 640px), (max-height: 780px) {
+  .theme-tanks .page-header .eyebrow,
+  .theme-tanks .page-header .subtitle { display: none; }
+  .theme-tanks .page-header h1 { font-size: 1.25rem; }
+  .page.theme-tanks { padding: 10px 8px; }
+  .theme-tanks .game-panel { padding: 10px 8px; }
+  .theme-tanks .room-header { margin: 0; padding: 0; border: 0; }
+  .tk-pad { height: 96px; }
+}
+
+@media (max-width: 640px), (max-height: 700px) {
+  .theme-tanks .room-series { display: none; }
+}
+
+/* ---- immersive play, matching Snake ---- */
+
+body.snake-immersive .theme-tanks .back-link,
+body.snake-immersive .theme-tanks .page-header,
+body.snake-immersive .theme-tanks .room-header { display: none; }
+
+body.snake-immersive .page.theme-tanks { max-width: none; padding: 0; gap: 0; }
+
+body.snake-immersive .theme-tanks .game-panel {
+  position: relative;
+  padding: 0;
+  gap: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.snake-immersive .theme-tanks .online-room { gap: 0; }
+body.snake-immersive .tk-layer { border-radius: 0; }
+body.snake-immersive .tk-controls { padding: 0 10px 10px; margin-top: 6px; }

@@ -41,7 +41,8 @@ public class RoomService {
     private static final Map<String, Integer> BOARD_SIZES = Map.of(
             "reversi", 8,
             "tic-tac-toe", 3,
-            "snake", 15
+            "snake", 15,
+            "tanks", 15
     );
 
     private final Map<String, Room> rooms = new ConcurrentHashMap<>();

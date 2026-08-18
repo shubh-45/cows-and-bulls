@@ -51,6 +51,15 @@ export const GAMES = [
     status: 'live',
   },
   {
+    id: 'tanks',
+    title: 'Bank Shot',
+    tagline: 'Two tanks, one arena. Shells bounce - so does the winning shot.',
+    icon: '💥',
+    accent: '#f2b705',
+    path: '/games/tanks',
+    status: 'live',
+  },
+  {
     id: 'memory-match',
     title: 'Memory Match',
     tagline: 'Flip cards, find every pair, beat your best time.',
