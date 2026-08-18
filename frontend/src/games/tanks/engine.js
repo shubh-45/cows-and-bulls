@@ -21,10 +21,34 @@ export const ARENA = { cols: 8, rows: 11, cell: 20, w: 160, h: 220 }
 export const TICK_MS = 33
 const DT = TICK_MS / 1000
 
-export const TANK_R = 7.2
-export const TANK_SPEED = 46        // units per second
-/** How fast the hull swings to face where it is going. Cosmetic only now. */
-export const TURN_RATE = 7.5        // radians per second
+/** Sized against the 20-unit cell: a tank is most of a corridor, not a dot in
+    it. The art in Board.jsx is scaled from this, so the thing you see and the
+    thing that gets hit are the same size by construction. */
+export const TANK_R = 8.4
+export const TANK_SPEED = 33        // units per second, flat out
+
+/**
+ * The tank has weight.
+ *
+ * Speed alone does not read as heavy - a slow tank that starts and stops on the
+ * same tick just feels sluggish. What reads as heavy is taking time to get
+ * going and carrying on a little after you let go, so a turn has to be planned
+ * one tank-length early. These are the two rates that do that, and they are
+ * deliberately NOT a return to steer-and-throttle: you still push the tank
+ * where you want it, it just does not answer instantly.
+ */
+export const TANK_ACCEL = 78        // units per second squared, under power
+export const TANK_BRAKE = 62        // and coasting down, slower - it is heavy
+/** How fast the hull swings to face where it is going. Cosmetic only. */
+export const TURN_RATE = 4.2        // radians per second
+/**
+ * Turret traverse. The gun no longer snaps to wherever you point: it swings.
+ * A half-turn takes about 0.8s, which is what makes a bank shot something you
+ * line up rather than something you flick to. The aim guide is drawn from the
+ * turret's REAL angle, so it shows the gun catching up rather than lying about
+ * where a shot fired this instant would go.
+ */
+export const TURRET_RATE = 4.0      // radians per second
 export const RELOAD_MS = 850
 
 /**
@@ -92,6 +116,17 @@ export function seedFromString(text) {
 const idx = (col, row) => row * ARENA.cols + col
 /** Both tanks spawn on this column, and it is kept clear of steel. */
 const SPAWN_COL = Math.floor(ARENA.cols / 2)
+/** Where the tanks start. Shared with createState, so the cells the generator
+    clears and the cells a tank actually occupies cannot drift apart. */
+const SPAWNS = [
+  { x: ARENA.w * 0.5, y: ARENA.h - 26, heading: -Math.PI / 2 },
+  { x: ARENA.w * 0.5, y: 26, heading: Math.PI / 2 },
+]
+/** Cover cells, off the divider, that every seed is guaranteed. */
+const MIN_COVER = 6
+/** Kept clear for the full height of the arena, with its mirror, so a tank can
+    always get from one half to the other. See buildArena. */
+const LANE_COL = 1
 const inGrid = (col, row) => col >= 0 && col < ARENA.cols && row >= 0 && row < ARENA.rows
 
 /**
@@ -125,9 +160,9 @@ export function buildArena(seed) {
       // a route rather than removing it. Without this a quarter of seeds
       // produced an arena where no shell could ever reach the other player.
       const spine = col === SPAWN_COL
-      if (roll < 0.10) place(col, row, spine ? CELL.CRATE : CELL.STEEL)
-      else if (roll < 0.22) place(col, row, CELL.CRATE)
-      else if (roll < 0.27) place(col, row, CELL.BARREL)
+      if (roll < 0.06) place(col, row, spine ? CELL.CRATE : CELL.STEEL)
+      else if (roll < 0.14) place(col, row, CELL.CRATE)
+      else if (roll < 0.18) place(col, row, CELL.BARREL)
     }
   }
 
@@ -139,7 +174,14 @@ export function buildArena(seed) {
   // loop fills, so it overwrote that row's twin and broke the symmetry the
   // whole layout depends on. Its gaps are symmetric about the vertical centre
   // too, or a corridor would open on one side and be walled on the other.
-  const GAPS = new Set([1, ARENA.cols - 2])
+  //
+  // Two cells wide, not one. A tank is now 16.8 units across in a 20-unit
+  // cell, so a single-cell gap left 1.6 units of clearance either side - a
+  // doorway you had to line up on, with a tank that no longer stops on a
+  // penny. Widening it is the same change as thinning the field: less of the
+  // arena is wall. The set stays symmetric under col -> cols-1-col, or a
+  // corridor would open on one side and be bricked up on the other.
+  const GAPS = new Set([1, 2, ARENA.cols - 3, ARENA.cols - 2])
   for (let col = 0; col < ARENA.cols; col++) {
     if (GAPS.has(col)) continue
     // The spawn column gets a CRATE rather than steel or a hole. Steel there
@@ -149,25 +191,93 @@ export function buildArena(seed) {
     place(col, half - 1, col === SPAWN_COL ? CELL.CRATE : CELL.STEEL)
   }
 
-  // Placed AFTER the divider, not before: the divider is laid down through the
-  // same mirroring helper and was overwriting barrels that had already been
-  // counted, so a seed could still end up with none.
+  // One lane the generator is never allowed to brick up.
+  //
+  // The divider gaps alone are not a guarantee. Random cover lands in the rows
+  // either side of them, and a single crate sitting under a gap walls off the
+  // approach even though the gap itself is open - 5 seeds in 300 sealed a tank
+  // into its own half that way, and a tank is now wide enough that it takes
+  // only one. Rather than search the arena for a route and re-roll, one column
+  // is cleared top to bottom: with the outermost rows never filled, that is a
+  // route from either spawn, out along the back wall, up the lane and back.
+  // It is a fallback, not the way you would choose to go - the two-cell
+  // divider gaps are still the good route when they are open.
+  //
+  // Mirrored like everything else, so clearing column 1 clears column 6 too.
+  for (let row = 0; row < ARENA.rows; row++) place(LANE_COL, row, CELL.EMPTY)
+
+  // Spawns are cleared BEFORE the floors below count anything, which is the
+  // opposite of what it used to do. Clearing them last reads as the safe
+  // order and quietly undid the barrel floor: a barrel pair landing on a
+  // spawn cell was counted as cover, then wiped by the clearing, and the seed
+  // ended up with nothing to blow up after all. 29 seeds in 600 did exactly
+  // that. Anything a floor places afterwards is well clear of a spawn, so
+  // nothing can bury a tank either.
+  //
+  // The whole tank FOOTPRINT is cleared, not the single cell under its
+  // centre. A tank spawns on a cell boundary and is now 16.8 units across on
+  // a 20-unit grid, so it covers four cells; derived from TANK_R rather than
+  // written out, so the next time the tank changes size this follows.
+  for (const spawn of SPAWNS) {
+    const c0 = Math.floor((spawn.x - TANK_R) / ARENA.cell)
+    const c1 = Math.floor((spawn.x + TANK_R) / ARENA.cell)
+    const r0 = Math.floor((spawn.y - TANK_R) / ARENA.cell)
+    const r1 = Math.floor((spawn.y + TANK_R) / ARENA.cell)
+    for (let row = r0; row <= r1; row++) {
+      for (let col = c0; col <= c1; col++) place(col, row, CELL.EMPTY)
+    }
+  }
+
   // Barrels are the most interesting thing on the board, and at a low spawn
   // chance some seeds produced none at all - an arena with nothing to blow up.
-  // A floor guarantees a couple, placed through the mirror like everything else.
+  // A floor guarantees a couple, placed through the mirror like everything
+  // else. The rows it draws from sit clear of both spawn footprints.
+  // Stops one short of the divider row, and starts one below the spawn row.
+  // Reaching the divider let the cover floor place a crate INTO the divider
+  // and count it, so a bare seed satisfied the floor without gaining any
+  // cover; starting on the spawn row would bury the mirrored tank.
+  const FLOOR_ROW_LO = 2
+  const FLOOR_ROW_HI = half - 2
+  // Draws from the columns between the lanes, so a floor can never brick up
+  // the one route the generator promises.
+  const floorCell = () => ({
+    col: LANE_COL + 1 + Math.floor(rand() * (ARENA.cols - 2 * (LANE_COL + 1))),
+    row: FLOOR_ROW_LO + Math.floor(rand() * Math.max(1, FLOOR_ROW_HI - FLOOR_ROW_LO + 1)),
+  })
+
   let barrels = grid.filter((c) => c === CELL.BARREL).length
   for (let attempt = 0; attempt < 40 && barrels < 2; attempt++) {
-    const col = 1 + Math.floor(rand() * (ARENA.cols - 2))
-    const row = 2 + Math.floor(rand() * Math.max(1, half - 3))
+    const { col, row } = floorCell()
     if (!inGrid(col, row) || grid[idx(col, row)] !== CELL.EMPTY) continue
     place(col, row, CELL.BARREL)
     barrels += 2
   }
 
-  // Spawns are cleared last, so nothing placed above can bury a tank.
-  const spawnRow = Math.floor((ARENA.h - 26) / ARENA.cell)
-  place(SPAWN_COL, spawnRow, CELL.EMPTY)
-  place(SPAWN_COL, ARENA.rows - 1 - spawnRow, CELL.EMPTY)
+  // A floor on cover as well as on barrels.
+  //
+  // Thinning the field is what was asked for, but thinning it by probability
+  // alone has a tail: a fifth of seeds came out with almost nothing between
+  // the two tanks but the divider, and an open arena with slower tanks in it
+  // is a shooting gallery rather than a duel. Counted off the divider rows,
+  // because the divider is cover nobody chose.
+  const isDivider = (row) => row === half - 1 || row === ARENA.rows - half
+  const coverCount = () => {
+    let n = 0
+    for (let row = 0; row < ARENA.rows; row++) {
+      if (isDivider(row)) continue
+      for (let col = 0; col < ARENA.cols; col++) {
+        if (grid[idx(col, row)] !== CELL.EMPTY) n += 1
+      }
+    }
+    return n
+  }
+  let cover = coverCount()
+  for (let attempt = 0; attempt < 60 && cover < MIN_COVER; attempt++) {
+    const { col, row } = floorCell()
+    if (!inGrid(col, row) || grid[idx(col, row)] !== CELL.EMPTY) continue
+    place(col, row, CELL.CRATE)
+    cover += 2
+  }
 
   return grid
 }
@@ -175,7 +285,7 @@ export function buildArena(seed) {
 /* ---- state -------------------------------------------------------------- */
 
 function makeTank(id, x, y, heading) {
-  return { id, x, y, heading, turret: heading, alive: true, cooldown: 0, shots: 0 }
+  return { id, x, y, vx: 0, vy: 0, heading, turret: heading, alive: true, cooldown: 0, shots: 0 }
 }
 
 export function createState(seed) {
@@ -185,10 +295,7 @@ export function createState(seed) {
     seed,
     rngState: seed >>> 0,
     grid: buildArena(seed),
-    tanks: [
-      makeTank(0, ARENA.w * 0.5, ARENA.h - 26, -Math.PI / 2),
-      makeTank(1, ARENA.w * 0.5, 26, Math.PI / 2),
-    ],
+    tanks: SPAWNS.map((s, i) => makeTank(i, s.x, s.y, s.heading)),
     shells: [],
     nextShellId: 1,
     // Consumed by the renderer each tick to fire off effects. They ride along
@@ -322,29 +429,69 @@ export function step(state, inputs = {}) {
   for (const tank of next.tanks) {
     if (!tank.alive) continue
     const input = inputs[tank.id] ?? {}
-    if (typeof input.aim === 'number') tank.turret = wrap(input.aim)
+
+    // The gun traverses towards where you are pointing instead of snapping to
+    // it, so aiming is a thing the tank does rather than a number you set.
+    if (typeof input.aim === 'number') {
+      const diff = wrap(wrap(input.aim) - tank.turret)
+      const swing = TURRET_RATE * DT
+      tank.turret = wrap(tank.turret + clamp(diff, -swing, swing))
+    }
 
     // The tank goes where you push it. The first version steered and
     // throttled like a real tank, which reads as authentic and plays as
     // awkward - on a phone you spend the round fighting the turn rate instead
     // of the other player. The hull still swings round to face the direction
     // of travel, so it looks like a tank; it just no longer handles like one.
+    //
+    // What it does now have is inertia: the push sets a TARGET velocity, and
+    // the tank accelerates towards it. Let go and it coasts to a stop. That is
+    // the weight, and it costs one vector of state rather than a control
+    // scheme nobody enjoyed.
     let mx = clamp(input.mx ?? 0, -1, 1)
     let my = clamp(input.my ?? 0, -1, 1)
     const push = Math.hypot(mx, my)
     if (push > 1) { mx /= push; my /= push }
+    const driving = push > 0.08
 
-    if (push > 0.08) {
+    const wantVx = driving ? mx * TANK_SPEED : 0
+    const wantVy = driving ? my * TANK_SPEED : 0
+    let dvx = wantVx - tank.vx
+    let dvy = wantVy - tank.vy
+    const dv = Math.hypot(dvx, dvy)
+    const most = (driving ? TANK_ACCEL : TANK_BRAKE) * DT
+    if (dv > most) { dvx = (dvx / dv) * most; dvy = (dvy / dv) * most }
+    tank.vx += dvx
+    tank.vy += dvy
+
+    if (Math.hypot(tank.vx, tank.vy) > 0.4) {
       const moved = slide(
         next.grid,
-        tank.x + mx * TANK_SPEED * DT,
-        tank.y + my * TANK_SPEED * DT,
+        tank.x + tank.vx * DT,
+        tank.y + tank.vy * DT,
         TANK_R
       )
+      // Velocity is re-read from what actually happened rather than from what
+      // was asked for. Driving into a wall therefore bleeds the speed off
+      // instead of storing it up and firing the tank sideways along the wall
+      // the moment it finds an opening.
+      tank.vx = (moved.x - tank.x) / DT
+      tank.vy = (moved.y - tank.y) / DT
       tank.x = moved.x
       tank.y = moved.y
-      const want = Math.atan2(my, mx)
-      const diff = wrap(want - tank.heading)
+    } else {
+      tank.vx = 0
+      tank.vy = 0
+    }
+
+    // Facing follows the push while there is one, and the drift after it, so a
+    // tank coasting to a halt does not spin to face a direction it is no
+    // longer travelling in.
+    const facing = driving ? Math.atan2(my, mx)
+      : Math.hypot(tank.vx, tank.vy) > 1 ? Math.atan2(tank.vy, tank.vx)
+      : null
+    if (facing !== null) {
+      const diff = wrap(facing - tank.heading)
       const swing = TURN_RATE * DT
       tank.heading = wrap(tank.heading + clamp(diff, -swing, swing))
     }

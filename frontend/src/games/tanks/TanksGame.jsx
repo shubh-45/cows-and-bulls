@@ -6,7 +6,7 @@ import { reportResult } from '../../lib/roomsApi'
 import { useRoom } from '../../lib/useRoom'
 import { useImmersive } from '../../lib/useImmersive'
 import TankBoard from './Board'
-import { ARENA, predictShot, seedFromString } from './engine'
+import { ARENA, RELOAD_MS, predictShot, seedFromString } from './engine'
 import { PROTOCOL_VERSION, createDuel } from './authority'
 import './Tanks.css'
 
@@ -51,8 +51,19 @@ export default function TanksGame() {
   // move must not cost a React render - it happens far more often than a tick.
   const moveRef = useRef({ mx: 0, my: 0 })
   const aimRef = useRef(null)
-  /** True while the aim stick is held; the gun fires as soon as it reloads. */
+  /**
+   * True while the FIRE control is held - the button on a phone, the mouse
+   * button or space on a desktop. The gun goes off as soon as it reloads.
+   *
+   * This used to be the aim stick itself, and before that a release-to-fire
+   * gesture, and both were wrong in the same way: every adjustment to the aim
+   * was also a trigger pull, so you could not line a shot up without letting
+   * one go somewhere you did not mean. Aiming and firing are now separate
+   * controls and the aim stick cannot discharge the gun at all.
+   */
   const holdingRef = useRef(false)
+  /** Mirrored into state only so the fire button can look pressed. */
+  const [firing, setFiring] = useState(false)
   const keysRef = useRef(new Set())
   const stageRef = useRef(null)
 
@@ -149,8 +160,8 @@ export default function TanksGame() {
       const move = kx || ky ? { mx: kx, my: ky } : moveRef.current
       duel.setInput({ mx: move.mx, my: move.my })
       if (aimRef.current !== null) duel.setInput({ aim: aimRef.current })
-      // Holding the aim stick keeps firing as the gun comes back. The reload is
-      // the limit, so there is nothing to spam and no separate button to reach.
+      // Held fire keeps shooting as the gun comes back. The reload is the
+      // limit, so there is nothing to spam by holding it down.
       if (holdingRef.current || keys.has(' ')) duel.setInput({ fire: true })
 
       const interval = duel.tickInterval()
@@ -207,6 +218,37 @@ export default function TanksGame() {
     aimRef.current = angle
     setAim(angle)
   }, [])
+
+  /**
+   * A trigger that is held is a trigger that can get stuck down.
+   *
+   * The button captures the pointer, so an ordinary release lands on it even
+   * if the thumb has slid off - but a release the page never sees at all
+   * (the gesture taken over by the browser, the controls unmounting under the
+   * thumb as a round ends) leaves the gun held down, and it then fires on its
+   * own for the whole of the next round. Listening at the window is the
+   * backstop: wherever the release happens, the trigger comes up with it.
+   */
+  useEffect(() => {
+    const release = () => { holdingRef.current = false; setFiring(false) }
+    window.addEventListener('pointerup', release)
+    window.addEventListener('pointercancel', release)
+    window.addEventListener('blur', release)
+    return () => {
+      window.removeEventListener('pointerup', release)
+      window.removeEventListener('pointercancel', release)
+      window.removeEventListener('blur', release)
+    }
+  }, [])
+
+  // And whenever a round is not actually being played, so a trigger held as
+  // one round ends cannot carry over into the next.
+  useEffect(() => {
+    if (countdown !== null || game?.status === 'over') {
+      holdingRef.current = false
+      setFiring(false)
+    }
+  }, [countdown, game?.status])
 
   // Keyboard: WASD or arrows to drive, space to fire, mouse over the board to
   // aim. The page never scrolls on these, which is why they are preventDefault.
@@ -278,7 +320,13 @@ export default function TanksGame() {
   // Always drawn, not only while a thumb is down. Aiming was unclear because
   // the guide appeared and vanished with the touch, so there was nothing to
   // line up against between shots.
-  const aimAngle = aim ?? me?.turret ?? null
+  //
+  // Drawn from the turret's REAL angle, not from where the stick is pointing.
+  // The gun traverses now, so for a moment after a big swing those are
+  // different - and a guide drawn from the request would promise a shot the
+  // tank cannot take yet. Watching the guide sweep round to catch up is also
+  // the clearest read on how heavy the turret is.
+  const aimAngle = me?.turret ?? null
   const aimPath = game && aimAngle !== null && me?.alive && !over ? predictShot(game, seat, aimAngle) : null
 
   return (
@@ -369,28 +417,46 @@ export default function TanksGame() {
                     <span className="tk-pad-label">MOVE</span>
                   </div>
 
-                  <div
-                    className="tk-pad tk-aimpad"
-                    onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); holdingRef.current = true; onAim(e) }}
-                    onPointerMove={(e) => { if (e.buttons || e.pointerType === 'touch') onAim(e) }}
-                    onPointerUp={() => { holdingRef.current = false }}
-                    onPointerCancel={() => { holdingRef.current = false }}
-                  >
-                    <span className="tk-ring" />
-                    {aim !== null && (
+                  {/* Aims and only aims. Nothing on this pad can fire. */}
+                  <div className="tk-aimside">
+                    <div
+                      className="tk-pad tk-aimpad"
+                      onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); onAim(e) }}
+                      onPointerMove={(e) => { if (e.buttons || e.pointerType === 'touch') onAim(e) }}
+                    >
+                      <span className="tk-ring" />
+                      {aim !== null && (
+                        <span
+                          className="tk-aim-needle"
+                          style={{ transform: `rotate(${(aim * 180) / Math.PI}deg)` }}
+                        />
+                      )}
+                      <span className="tk-knob is-aim" />
+                      <span className="tk-pad-label">AIM</span>
+                    </div>
+
+                    {/* The trigger, deliberately its own control and reachable
+                        by the same thumb that just finished aiming. */}
+                    <button
+                      type="button"
+                      className={`tk-fire ${firing ? 'is-down' : ''} ${me && me.cooldown === 0 ? 'is-ready' : ''}`}
+                      aria-label="Fire"
+                      onPointerDown={(e) => {
+                        e.currentTarget.setPointerCapture(e.pointerId)
+                        holdingRef.current = true
+                        setFiring(true)
+                      }}
+                      onPointerUp={() => { holdingRef.current = false; setFiring(false) }}
+                      onPointerCancel={() => { holdingRef.current = false; setFiring(false) }}
+                      onContextMenu={(e) => e.preventDefault()}
+                    >
+                      {/* Reload, on the control that is waiting for it. */}
                       <span
-                        className="tk-aim-needle"
-                        style={{ transform: `rotate(${(aim * 180) / Math.PI}deg)` }}
+                        className="tk-fire-load"
+                        style={{ transform: `scaleY(${me ? 1 - me.cooldown / RELOAD_MS : 1})` }}
                       />
-                    )}
-                    <span className="tk-knob is-aim" />
-                    <span className="tk-pad-label">AIM</span>
-                    {me && (
-                      <span
-                        className="tk-reload"
-                        style={{ transform: `scaleX(${1 - me.cooldown / 900})` }}
-                      />
-                    )}
+                      <span className="tk-fire-label">FIRE</span>
+                    </button>
                   </div>
                 </div>
               )}

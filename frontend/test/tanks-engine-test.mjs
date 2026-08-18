@@ -2,7 +2,7 @@
 // ricochet geometry gets the most attention.
 const T = new URL('../src/games/tanks', import.meta.url).pathname
 const E = await import(`file://${T}/engine.js`)
-const { ARENA, CELL, EVENT, TICK_MS, createState, step, buildArena, seedFromString } = E
+const { ARENA, CELL, EVENT, TICK_MS, TANK_R, TANK_SPEED, TURRET_RATE, createState, step, buildArena, seedFromString } = E
 
 let pass = 0, fail = 0
 const check = (label, ok, detail = '') => {
@@ -104,30 +104,41 @@ console.log('arena:')
 
 console.log('\ndriving:')
 {
+  // Measured once the tank is ALREADY rolling, not from a standing start.
+  // The tank accelerates now, so a second timed from rest covers noticeably
+  // less than a second at speed - measuring from rest would be measuring the
+  // ramp and the top speed at once, and would drift every time either changed.
+  // Started at the left with room to run: the ramp plus the measured second is
+  // over two seconds of travel, which from the spawn would end against a wall.
   let s = empty()
+  s.tanks[0] = { ...s.tanks[0], x: 20, y: 110 }
+  s = run(s, { 0: { mx: 1, my: 0 } }, 40)
   const before = { ...s.tanks[0] }
-  s = run(s, { 0: { mx: 1, my: 0 } }, 30)          // ~1 second right
+  s = run(s, { 0: { mx: 1, my: 0 } }, 30)          // ~1 second, already at speed
   const moved = Math.hypot(s.tanks[0].x - before.x, s.tanks[0].y - before.y)
-  check(`moves at about ${E.TANK_SPEED} units a second (moved ${moved.toFixed(1)})`,
+  check(`moves at about ${E.TANK_SPEED} units a second once rolling (moved ${moved.toFixed(1)})`,
     Math.abs(moved - E.TANK_SPEED) < 4)
 
   // Push and go, rather than steer and throttle: pushing straight down must
   // move the tank straight down whatever way it happens to be facing.
   let d = empty()
   d.tanks[0] = { ...d.tanks[0], x: 80, y: 110, heading: Math.PI }
-  d = run(d, { 0: { mx: 0, my: 1 } }, 20)
+  d = run(d, { 0: { mx: 0, my: 1 } }, 40)
   check('goes the way you push, regardless of which way it was facing',
     Math.abs(d.tanks[0].x - 80) < 0.5 && d.tanks[0].y > 110 + 20)
 
   let h = empty()
   h.tanks[0] = { ...h.tanks[0], x: 80, y: 110, heading: Math.PI }
-  h = run(h, { 0: { mx: 1, my: 0 } }, 20)
+  // Long enough for the slower hull to complete a half turn: at TURN_RATE it
+  // takes about 0.75s to come all the way round, and it is meant to be slow.
+  h = run(h, { 0: { mx: 1, my: 0 } }, 32)
   check('and the hull swings round to face where it is going',
     Math.abs(h.tanks[0].heading) < 0.35, `heading ${h.tanks[0].heading.toFixed(2)}`)
 
   // A diagonal must not be faster than a straight line.
   let diag = empty()
   diag.tanks[0] = { ...diag.tanks[0], x: 40, y: 60 }
+  diag = run(diag, { 0: { mx: 1, my: 1 } }, 40)   // up to speed first, as above
   const p0 = { ...diag.tanks[0] }
   diag = run(diag, { 0: { mx: 1, my: 1 } }, 30)
   const diagMoved = Math.hypot(diag.tanks[0].x - p0.x, diag.tanks[0].y - p0.y)
@@ -351,6 +362,143 @@ console.log('\npurity:')
     x1 = step(x1, input); x2 = step(x2, input)
   }
   check('same seed and inputs give the same result', JSON.stringify(x1) === JSON.stringify(x2))
+}
+
+console.log('\nthe tank has weight:')
+{
+  const drive = { 0: { mx: 1, my: 0 } }
+  const one = step(park(empty(11)), drive)
+  const top = TANK_SPEED * (TICK_MS / 1000)
+  // A tank that reaches full speed on the tick you push it has no weight, no
+  // matter how low the top speed is set.
+  check('does not reach full speed in one tick',
+    Math.hypot(one.tanks[0].vx, one.tanks[0].vy) < TANK_SPEED * 0.9,
+    `速 ${Math.hypot(one.tanks[0].vx, one.tanks[0].vy).toFixed(1)} of ${TANK_SPEED}`)
+
+  const rolling = run(park(empty(11)), drive, 40)
+  check('but gets there if you hold it',
+    Math.abs(Math.hypot(rolling.tanks[0].vx, rolling.tanks[0].vy) - TANK_SPEED) < 0.5)
+
+  // Coasting is the half that reads as heavy: let go and it carries on.
+  const released = step(rolling, { 0: { mx: 0, my: 0 } })
+  const drift = released.tanks[0].x - rolling.tanks[0].x
+  check('carries on after you let go', drift > 0.2, `drifted ${drift.toFixed(2)}`)
+
+  const stopped = run(rolling, { 0: { mx: 0, my: 0 } }, 60)
+  check('and does come to a full stop',
+    stopped.tanks[0].vx === 0 && stopped.tanks[0].vy === 0)
+
+  // Driving into a wall must not bank up speed that fires the tank sideways
+  // the moment it finds an opening.
+  const wall = run(park(empty(12)), { 0: { mx: -1, my: 0 } }, 90)
+  check('does not store up speed against a wall',
+    Math.abs(wall.tanks[0].vx) < 1, `vx ${wall.tanks[0].vx.toFixed(2)}`)
+}
+
+console.log('\nthe turret traverses:')
+{
+  const s = park(empty(13))
+  s.tanks[0] = { ...s.tanks[0], turret: 0 }
+  const snapped = step(s, { 0: { aim: Math.PI } })
+  const moved = Math.abs(snapped.tanks[0].turret)
+  const most = TURRET_RATE * (TICK_MS / 1000)
+  check('the gun does not snap to where you point', moved < Math.PI - 0.01)
+  check('it swings at the traverse rate', Math.abs(moved - most) < 1e-6,
+    `${moved.toFixed(4)} vs ${most.toFixed(4)}`)
+
+  // It must still ARRIVE, and by the shortest way round, or aiming across the
+  // -pi/pi seam would take the long way.
+  let held = s
+  for (let i = 0; i < 40; i++) held = step(held, { 0: { aim: -2.6 } })
+  check('and arrives at the angle you asked for', Math.abs(held.tanks[0].turret + 2.6) < 1e-6)
+
+  const seam = { ...empty(14) }
+  seam.tanks = seam.tanks.map((t, i) => (i === 0 ? { ...t, turret: 3.0 } : t))
+  const across = step(park(seam), { 0: { aim: -3.0 } })
+  check('taking the short way round the seam', Math.abs(across.tanks[0].turret) > 3.0)
+}
+
+console.log('\nthe arena fits the tank it holds:')
+{
+  // A circle of TANK_R against the same solid cells slide() uses. Written out
+  // here rather than imported because what is being checked is whether the
+  // GENERATOR and the tank size agree - so the test should not share a helper
+  // with either.
+  const SOLID = new Set([CELL.CRATE, CELL.CRATE_HIT, CELL.STEEL, CELL.BARREL])
+  const freeAt = (grid, x, y) => {
+    if (x < TANK_R || y < TANK_R || x > ARENA.w - TANK_R || y > ARENA.h - TANK_R) return false
+    const c0 = Math.floor((x - TANK_R) / ARENA.cell), c1 = Math.floor((x + TANK_R) / ARENA.cell)
+    const r0 = Math.floor((y - TANK_R) / ARENA.cell), r1 = Math.floor((y + TANK_R) / ARENA.cell)
+    for (let row = r0; row <= r1; row++) {
+      for (let col = c0; col <= c1; col++) {
+        if (row < 0 || col < 0 || row >= ARENA.rows || col >= ARENA.cols) return false
+        if (!SOLID.has(grid[idx(col, row)])) continue
+        const left = col * ARENA.cell, top = row * ARENA.cell
+        const cx = Math.max(left, Math.min(x, left + ARENA.cell))
+        const cy = Math.max(top, Math.min(y, top + ARENA.cell))
+        if (Math.hypot(x - cx, y - cy) < TANK_R) return false
+      }
+    }
+    return true
+  }
+
+  // Can a tank actually DRIVE from one spawn to the other? Shells passing is
+  // not the same question, and it is the one that got bigger when the tank
+  // did: a gap a shell flies through can still be a gap a tank will not fit.
+  const STEP = 1
+  const reachable = (grid, from, to) => {
+    const key = (x, y) => `${x},${y}`
+    const start = [Math.round(from.x), Math.round(from.y)]
+    const queue = [start]
+    const seen = new Set([key(...start)])
+    while (queue.length) {
+      const [x, y] = queue.shift()
+      if (Math.hypot(x - to.x, y - to.y) <= 2) return true
+      for (const [dx, dy] of [[STEP, 0], [-STEP, 0], [0, STEP], [0, -STEP]]) {
+        const nx = x + dx, ny = y + dy
+        if (seen.has(key(nx, ny)) || !freeAt(grid, nx, ny)) continue
+        seen.add(key(nx, ny))
+        queue.push([nx, ny])
+      }
+    }
+    return false
+  }
+
+  let sealed = [], buried = [], SEEDS = 300
+  for (let seed = 0; seed < SEEDS; seed++) {
+    const s = createState(seed)
+    if (!s.tanks.every((t) => freeAt(s.grid, t.x, t.y))) buried.push(seed)
+    else if (!reachable(s.grid, s.tanks[0], s.tanks[1])) sealed.push(seed)
+  }
+  check(`no seed spawns a tank inside a wall (${SEEDS} seeds)`, buried.length === 0,
+    `buried at ${buried.slice(0, 5).join(', ')}`)
+  check(`a tank can drive from one spawn to the other (${SEEDS} seeds)`, sealed.length === 0,
+    `sealed at ${sealed.slice(0, 5).join(', ')}`)
+}
+
+console.log('\nthe arena is thinned but never bare:')
+{
+  let worstCover = Infinity, worstBarrels = Infinity, open = 0, cells = 0
+  const half = Math.floor(ARENA.rows / 2)
+  for (let seed = 0; seed < 300; seed++) {
+    const g = buildArena(seed)
+    let cover = 0
+    for (let r = 0; r < ARENA.rows; r++) {
+      if (r === half - 1 || r === ARENA.rows - half) continue
+      for (let c = 0; c < ARENA.cols; c++) if (g[idx(c, r)] !== CELL.EMPTY) cover++
+    }
+    for (const c of g) { cells++; if (c === CELL.EMPTY) open++ }
+    worstCover = Math.min(worstCover, cover)
+    worstBarrels = Math.min(worstBarrels, g.filter((c) => c === CELL.BARREL).length)
+  }
+  // The floor used to be counted before the spawn cells were cleared, so a
+  // barrel pair on a spawn was counted and then wiped - 29 seeds in 600 came
+  // out with nothing to blow up.
+  check('every seed has barrels, counted after the spawns are cleared', worstBarrels >= 2,
+    `worst was ${worstBarrels}`)
+  check('every seed has cover off the divider', worstCover >= 6, `worst was ${worstCover}`)
+  const openPct = (100 * open) / cells
+  check(`the floor is open but not empty (${openPct.toFixed(1)}% open)`, openPct > 78 && openPct < 88)
 }
 
 console.log(`\n${pass} passed, ${fail} failed`)

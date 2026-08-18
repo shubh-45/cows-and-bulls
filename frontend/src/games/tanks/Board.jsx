@@ -72,9 +72,48 @@ function Barrel({ col, row }) {
 
 const deg = (radians) => (radians * 180) / Math.PI
 
+/**
+ * The radius the hull below was drawn against.
+ *
+ * The art is authored once at this size and scaled to whatever TANK_R happens
+ * to be, so the tank you see and the tank that gets hit are the same object.
+ * They used to be independent numbers, and the drawn tank was noticeably
+ * smaller than its own hitbox - shells "missed" tanks they visibly went
+ * through, which reads as netcode trouble and is nothing of the sort.
+ */
+const ART_R = 6.4
+
+/**
+ * How far the gun sticks out past the hull, in arena units.
+ *
+ * Taken from the barrel drawn below (it ends at 8.4 in art units) so the
+ * marker can be placed clear of it. Sitting just above the hull was not
+ * clear of it: the turret sweeps a full circle, and whenever it pointed at
+ * the marker the barrel drew straight through it and the marker vanished.
+ */
+const GUN_REACH = (8.4 / ART_R) * TANK_R
+const MARK_OFF = GUN_REACH + 3.6
+
+/** Which tank is mine, answered without drawing on the tank itself. */
+function Marker({ flip }) {
+  const base = flip ? MARK_OFF : -MARK_OFF
+  const point = flip ? base - 3.2 : base + 3.2
+  return <path className="tk-mine-mark" d={`M-2.9 ${base}H2.9L0 ${point}Z`} />
+}
+
 function Tank({ tank, tone, mine }) {
+  const scale = TANK_R / ART_R
   return (
-    <g className={`tk-tank tk-${tone} ${tank.alive ? '' : 'is-dead'}`} transform={`translate(${tank.x} ${tank.y})`}>
+    <g className={`tk-tank tk-${tone} ${tank.alive ? '' : 'is-dead'} ${mine ? 'is-mine' : ''}`}
+       transform={`translate(${tank.x} ${tank.y})`}>
+      {/* A caret above the tank rather than a ring around it. The ring read as
+          part of the tank and looked like a targeting reticle on your own
+          hull; a marker that floats clear of it says "this one" without
+          decorating the thing it is pointing at. It flips below when the tank
+          is near the top wall, where there is no room above it. */}
+      {mine && tank.alive && <Marker flip={tank.y < MARK_OFF + 2} />}
+
+      <g transform={`scale(${scale})`}>
       {/* Hull and treads turn with the heading; the turret is its own group, so
           you can reverse away while still aiming where you were. */}
       <g transform={`rotate(${deg(tank.heading)})`}>
@@ -93,7 +132,7 @@ function Tank({ tank, tone, mine }) {
       </g>
       <circle r={2.3} className="tk-turret" />
       <circle r={0.8} cx={-0.7} className="tk-hatch" />
-      {mine && <circle r={TANK_R + 1.4} className="tk-mine-ring" />}
+      </g>
     </g>
   )
 }

@@ -10,7 +10,11 @@ even playable, whether the board is actually animating.
 
 ## No backend needed
 
-    node tanks-engine-test.mjs    tank rules: driving, ricochet, cover, blasts, aim guide
+    node tanks-engine-test.mjs    tank rules: driving, weight, turret traverse,
+                                  ricochet, cover, blasts, aim guide, and whether
+                                  a tank can actually drive between the spawns
+    node tank-auth-test.mjs       tank netcode with both ends in one process and
+                                  no sockets - host/guest agreement at 80ms
     node auth-test.mjs            Snake netcode: prediction, rollback, convergence
     node glide-test.mjs           Snake between-cell drawing
     node guest-clock-test.mjs     Snake guest clock: jitter, corrections, progress bounds

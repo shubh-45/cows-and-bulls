@@ -15,7 +15,13 @@ export { TICK_MS }
 // zero. Falling back would make the other tank stutter to a halt every time the
 // network hiccuped.
 
-export const PROTOCOL_VERSION = 1
+// Bumped to 2 when the tank gained a velocity: a client on the old format
+// sends no vx/vy, which unpacks to undefined and turns the other tank's
+// position into NaN on the first predicted tick. The version check catches
+// that as a mismatch and tells both players to refresh, which is the only
+// thing that helps - HashRouter means a tab open across a deploy keeps
+// running the old bundle indefinitely.
+export const PROTOCOL_VERSION = 2
 export const HOST_SEAT = 0
 export const GUEST_SEAT = 1
 
@@ -88,10 +94,15 @@ export function createDuel({ seed, role, onState, send }) {
     t: s.tick,
     st: s.status,
     w: s.winner,
+    // Velocity travels with the tank now. It is state, not something the
+    // receiver can infer: the guest predicts several ticks past the last
+    // snapshot, and a tank whose speed restarted from zero on every snapshot
+    // would crawl on one screen and drive on the other.
     tk: s.tanks.map((t) => [
       Math.round(t.x * 100) / 100, Math.round(t.y * 100) / 100,
       Math.round(t.heading * 1000) / 1000, Math.round(t.turret * 1000) / 1000,
       t.alive ? 1 : 0, t.cooldown,
+      Math.round(t.vx * 10) / 10, Math.round(t.vy * 10) / 10,
     ]),
     sh: s.shells.map((b) => [
       b.id, b.owner,
@@ -115,7 +126,7 @@ export function createDuel({ seed, role, onState, send }) {
       grid: msg.gr ?? fallbackGrid,
       tanks: msg.tk.map((a, i) => ({
         id: i, x: a[0], y: a[1], heading: a[2], turret: a[3],
-        alive: a[4] === 1, cooldown: a[5], shots: 0,
+        alive: a[4] === 1, cooldown: a[5], vx: a[6] ?? 0, vy: a[7] ?? 0, shots: 0,
       })),
       shells: msg.sh.map((b) => ({
         id: b[0], owner: b[1], x: b[2], y: b[3], vx: b[4], vy: b[5],
