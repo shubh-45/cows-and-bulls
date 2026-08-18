@@ -17,10 +17,6 @@ even playable, whether the board is actually animating.
                                   no sockets - host/guest agreement at 80ms
     node auth-test.mjs            Snake netcode: prediction, rollback, convergence
     node glide-test.mjs           Snake between-cell drawing
-    node smooth-test.mjs          Snake correction smoothing: the worst backwards
-                                  jump the guest draws, at four link qualities.
-                                  The bug this covers was invisible on wifi and
-                                  obvious on mobile data, so measure, don't look
     node guest-clock-test.mjs     Snake guest clock: jitter, corrections, progress bounds
     node render-trace.mjs         replays a Snake duel on a virtual clock and
                                   measures what each screen DRAWS - frozen

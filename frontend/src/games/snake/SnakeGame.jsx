@@ -6,7 +6,6 @@ import { useGameResult } from '../../lib/useGameResult'
 import SnakeBoard, { steerFrom } from './Board'
 import SnakeDuel from './SnakeDuel'
 import { DEATH, createState, step, tickInterval } from './engine'
-import { toggleFullscreen, useImmersive } from '../../lib/useImmersive'
 import './Snake.css'
 
 const KEY_DIRECTIONS = {
@@ -78,9 +77,6 @@ export default function SnakeGame() {
 
   const snake = state.snakes[0]
   const over = state.status === 'over'
-
-  // Strips the page back to the board while a run is live.
-  useImmersive(started && !over && !paused && !duel)
 
   const steer = useCallback((steerOrDir) => {
     const current = stateRef.current
@@ -213,14 +209,6 @@ export default function SnakeGame() {
 
         {over && <Celebration outcome={snake.score > 0 ? 'win' : 'lose'} />}
 
-        <button
-          className="snake-exit"
-          onPointerDown={(e) => { e.preventDefault(); setPaused(true) }}
-          aria-label="Pause and leave full screen"
-        >
-          Pause
-        </button>
-
         <div className="snake-stage">
           <SnakeBoard
             state={state}
@@ -251,10 +239,7 @@ export default function SnakeGame() {
                 <strong> right</strong> half to turn right. Arrow keys or WASD
                 on a keyboard.
               </p>
-              <div className="snake-start-actions">
-                <button className="btn btn-primary" onClick={() => setStarted(true)}>Start</button>
-                <button className="btn btn-ghost" onClick={toggleFullscreen}>⛶ Full screen</button>
-              </div>
+              <button className="btn btn-primary" onClick={() => setStarted(true)}>Start</button>
             </div>
           )}
 
@@ -271,10 +256,10 @@ export default function SnakeGame() {
             pressing up sends the snake up, whichever way it was going. A
             reversal is ignored by the engine rather than being fatal. */}
         <div className="snake-pad">
-          <button className="pad-btn pad-up" onPointerDown={(e) => { e.preventDefault(); steer('up') }} disabled={over} aria-label="Up">
+          <button className="pad-btn pad-up" onClick={() => steer('up')} disabled={over} aria-label="Up">
             <DirArrow direction="up" />
           </button>
-          <button className="pad-btn pad-left" onPointerDown={(e) => { e.preventDefault(); steer('left') }} disabled={over} aria-label="Left">
+          <button className="pad-btn pad-left" onClick={() => steer('left')} disabled={over} aria-label="Left">
             <DirArrow direction="left" />
           </button>
           <button
@@ -284,10 +269,10 @@ export default function SnakeGame() {
           >
             {paused ? 'Resume' : 'Pause'}
           </button>
-          <button className="pad-btn pad-right" onPointerDown={(e) => { e.preventDefault(); steer('right') }} disabled={over} aria-label="Right">
+          <button className="pad-btn pad-right" onClick={() => steer('right')} disabled={over} aria-label="Right">
             <DirArrow direction="right" />
           </button>
-          <button className="pad-btn pad-down" onPointerDown={(e) => { e.preventDefault(); steer('down') }} disabled={over} aria-label="Down">
+          <button className="pad-btn pad-down" onClick={() => steer('down')} disabled={over} aria-label="Down">
             <DirArrow direction="down" />
           </button>
         </div>

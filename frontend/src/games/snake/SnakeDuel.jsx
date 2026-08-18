@@ -5,8 +5,7 @@ import { reportResult } from '../../lib/roomsApi'
 import { useRoom } from '../../lib/useRoom'
 import SnakeBoard, { steerFrom } from './Board'
 import { DEATH, seedFromString } from './engine'
-import { PROTOCOL_VERSION, TICK_MS, createDuel } from './authority'
-import { useImmersive } from '../../lib/useImmersive'
+import { PROTOCOL_VERSION, createDuel } from './authority'
 import './Snake.css'
 
 const COUNTDOWN_MS = 3000
@@ -83,20 +82,6 @@ export default function SnakeDuel({ onExit }) {
   // Both sides derive the seed from the room code and match number, so the
   // food sequence matches without anyone having to send it.
   const seed = room ? seedFromString(`${room.code}:${matchNumber}`) : 0
-
-  // Strips the page back to the board while the match is live, matching the
-  // solo game so both modes feel like the same game.
-  //
-  // Declared here, above every early return. Sitting further down - after the
-  // `if (!room) return <RoomLobby/>` - meant it was skipped on some renders and
-  // called on others, which is a changing hook count and a hard React crash the
-  // moment a room was created.
-  useImmersive(
-    Boolean(game) &&
-      game.status !== 'over' &&
-      countdown === null &&
-      room?.status !== 'ABANDONED'
-  )
 
   /* ---- connection ---- */
 
@@ -439,8 +424,6 @@ export default function SnakeDuel({ onExit }) {
             // remember and nothing to get the wrong way round.
             palette={seat === 0 ? ['p1', 'p2'] : ['p2', 'p1']}
             localIndex={seat}
-            smoothCorrections
-            tickMs={TICK_MS}
           />
 
           {countdown !== null && (
@@ -484,16 +467,6 @@ late ${diag.beat?.late ?? 0}/${diag.beat?.n ?? 0}   redo ${diag.beat?.rollbacks 
         </div>
       )}
 
-      {game && !over && countdown === null && (
-        <button
-          className="snake-exit"
-          onPointerDown={(e) => { e.preventDefault(); leave() }}
-          aria-label="Leave the match"
-        >
-          Leave
-        </button>
-      )}
-
       {game && !over && countdown === null && <DuelPad onSteer={steer} />}
     </div>
   )
@@ -504,29 +477,13 @@ function roleLabel(ref) {
   return ref.current?.isHost ? 'referee' : 'guest'
 }
 
-/**
- * Steering fires on pointer DOWN, not on click.
- *
- * A click only lands when the press and release agree, so on a phone the
- * browser can decide mid-press that the gesture was a scroll and drop the tap
- * entirely - the button flashes and the snake carries straight on. Acting on
- * the press removes that whole class of ignored input, and it is a tick
- * earlier besides.
- */
-function padPress(handler) {
-  return (event) => {
-    event.preventDefault()
-    handler()
-  }
-}
-
 function DuelPad({ onSteer }) {
   return (
     <div className="snake-pad is-duel">
-      <button className="pad-btn pad-up" onPointerDown={padPress(() => onSteer('up'))} aria-label="Up">▲</button>
-      <button className="pad-btn pad-left" onPointerDown={padPress(() => onSteer('left'))} aria-label="Left">◀</button>
-      <button className="pad-btn pad-right" onPointerDown={padPress(() => onSteer('right'))} aria-label="Right">▶</button>
-      <button className="pad-btn pad-down" onPointerDown={padPress(() => onSteer('down'))} aria-label="Down">▼</button>
+      <button className="pad-btn pad-up" onClick={() => onSteer('up')} aria-label="Up">▲</button>
+      <button className="pad-btn pad-left" onClick={() => onSteer('left')} aria-label="Left">◀</button>
+      <button className="pad-btn pad-right" onClick={() => onSteer('right')} aria-label="Right">▶</button>
+      <button className="pad-btn pad-down" onClick={() => onSteer('down')} aria-label="Down">▼</button>
     </div>
   )
 }
