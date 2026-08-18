@@ -1,6 +1,10 @@
 import { useRef } from 'react'
 import { DEATH, DIRECTIONS, OPPOSITE } from './engine'
 import { glidingBody } from './glide'
+import { createSmoother } from './smooth'
+
+/** Overridden wholesale by the render trace, which drives a virtual clock. */
+const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
 
 // Shared by solo and (later) the duel, so both render an identical board.
 //
@@ -33,6 +37,10 @@ export default function SnakeBoard({
   facing = null,
   palette = ['p1', 'p2'],
   localIndex = 0,
+  // Only used to judge what counts as ordinary movement between frames, for
+  // the correction smoothing. The solo game is never corrected, so its default
+  // is only ever a formality.
+  tickMs = 220,
 }) {
   const gesture = useRef(null)
 
@@ -114,6 +122,7 @@ export default function SnakeBoard({
             snake={snake}
             next={nextState?.snakes?.[index] ?? null}
             progress={progress}
+            tickMs={tickMs}
             tone={palette[index] ?? 'p1'}
             facing={index === localIndex ? facing : null}
             // Only worth marking when there is another snake to confuse it with.
@@ -125,8 +134,20 @@ export default function SnakeBoard({
   )
 }
 
-function Snake({ snake, next, progress, tone, facing, marked }) {
-  const cells = glidingBody(snake, next, progress)
+function Snake({ snake, next, progress, tickMs, tone, facing, marked }) {
+  // One smoother per snake, kept across frames. The two are corrected
+  // independently, so they cannot share one.
+  const smoother = useRef(null)
+  if (!smoother.current) smoother.current = createSmoother()
+
+  // Where the snake really is, then where it should be DRAWN. Only the second
+  // of these is allowed to differ from the truth, and only for about a tenth
+  // of a second after a correction.
+  const cells = smoother.current.apply(
+    glidingBody(snake, next, progress),
+    now(),
+    tickMs
+  )
   const points = cells.map((part) => `${part.x + 0.5},${part.y + 0.5}`).join(' ')
   const head = cells[0]
   // The eyes look where the *accepted* input points, which may be one tick

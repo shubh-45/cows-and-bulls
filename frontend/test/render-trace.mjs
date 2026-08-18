@@ -15,6 +15,10 @@ globalThis.performance = { now: () => VNOW }
 const SNAKE = new URL('../src/games/snake', import.meta.url).pathname
 const { createDuel, TICK_MS } = await import(`file://${SNAKE}/authority.js`)
 const { glidingBody } = await import(`file://${SNAKE}/glide.js`)
+// The board draws through the smoother, so the trace must too - measuring the
+// raw glide would report a stutter the player never sees, and would go on
+// reporting it after it was fixed.
+const { createSmoother } = await import(`file://${SNAKE}/smooth.js`)
 const { seedFromString } = await import(`file://${SNAKE}/engine.js`)
 
 /* ---- conditions ---- */
@@ -76,13 +80,15 @@ function run({ seconds = 40, hostStalls = true, seed = 7 } = {}) {
 
   // Where each side draws its OWN snake's head this frame.
   const drawn = { host: [], guest: [] }
-  const headOf = (duel) => {
+  const smoothers = { host: createSmoother(), guest: createSmoother() }
+  const headOf = (duel, side) => {
     const st = duel.state
     const next = duel.peekNext()
     const seat = duel.localSeat
     const snake = st.snakes[seat]
     if (!snake) return null
-    const pts = glidingBody(snake, next?.snakes?.[seat] ?? null, duel.progress())
+    const raw = glidingBody(snake, next?.snakes?.[seat] ?? null, duel.progress())
+    const pts = smoothers[side].apply(raw, VNOW, TICK_MS)
     return { x: pts[0].x, y: pts[0].y, alive: snake.alive }
   }
 
@@ -118,7 +124,7 @@ function run({ seconds = 40, hostStalls = true, seed = 7 } = {}) {
     if (accGuest >= guest.tickInterval()) { accGuest -= guest.tickInterval(); guest.tick() }
 
     // --- what each screen draws this frame ---
-    const h = headOf(host), g = headOf(guest)
+    const h = headOf(host, 'host'), g = headOf(guest, 'guest')
     if (h) drawn.host.push({ t: VNOW, ...h })
     if (g) drawn.guest.push({ t: VNOW, ...g })
   }

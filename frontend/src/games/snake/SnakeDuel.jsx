@@ -5,7 +5,7 @@ import { reportResult } from '../../lib/roomsApi'
 import { useRoom } from '../../lib/useRoom'
 import SnakeBoard, { steerFrom } from './Board'
 import { DEATH, seedFromString } from './engine'
-import { PROTOCOL_VERSION, createDuel } from './authority'
+import { PROTOCOL_VERSION, TICK_MS, createDuel } from './authority'
 import { useImmersive } from '../../lib/useImmersive'
 import './Snake.css'
 
@@ -439,6 +439,7 @@ export default function SnakeDuel({ onExit }) {
             // remember and nothing to get the wrong way round.
             palette={seat === 0 ? ['p1', 'p2'] : ['p2', 'p1']}
             localIndex={seat}
+            tickMs={TICK_MS}
           />
 
           {countdown !== null && (
