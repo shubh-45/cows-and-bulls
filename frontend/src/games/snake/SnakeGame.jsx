@@ -6,6 +6,7 @@ import { useGameResult } from '../../lib/useGameResult'
 import SnakeBoard, { steerFrom } from './Board'
 import SnakeDuel from './SnakeDuel'
 import { DEATH, createState, step, tickInterval } from './engine'
+import { toggleFullscreen, useImmersive } from './useImmersive'
 import './Snake.css'
 
 const KEY_DIRECTIONS = {
@@ -77,6 +78,9 @@ export default function SnakeGame() {
 
   const snake = state.snakes[0]
   const over = state.status === 'over'
+
+  // Strips the page back to the board while a run is live.
+  useImmersive(started && !over && !paused && !duel)
 
   const steer = useCallback((steerOrDir) => {
     const current = stateRef.current
@@ -209,6 +213,14 @@ export default function SnakeGame() {
 
         {over && <Celebration outcome={snake.score > 0 ? 'win' : 'lose'} />}
 
+        <button
+          className="snake-exit"
+          onPointerDown={(e) => { e.preventDefault(); setPaused(true) }}
+          aria-label="Pause and leave full screen"
+        >
+          Pause
+        </button>
+
         <div className="snake-stage">
           <SnakeBoard
             state={state}
@@ -239,7 +251,10 @@ export default function SnakeGame() {
                 <strong> right</strong> half to turn right. Arrow keys or WASD
                 on a keyboard.
               </p>
-              <button className="btn btn-primary" onClick={() => setStarted(true)}>Start</button>
+              <div className="snake-start-actions">
+                <button className="btn btn-primary" onClick={() => setStarted(true)}>Start</button>
+                <button className="btn btn-ghost" onClick={toggleFullscreen}>⛶ Full screen</button>
+              </div>
             </div>
           )}
 

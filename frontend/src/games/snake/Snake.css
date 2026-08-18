@@ -727,3 +727,154 @@
   font-size: 1.1rem;
   padding: 12px;
 }
+
+/* ---- immersive play -------------------------------------------------------
+
+   While a match is actually running the page stops being a web page and
+   becomes a game: the nav bar, the title, the back link, the mode toggle and
+   the panel's own frame all step out, and the board goes edge to edge.
+
+   This is where the "it feels small" came from. On a 390px phone a square
+   15x15 board can never be wider than the phone, so the board itself was
+   already close to its ceiling at 356px - the room it was missing was not
+   inside the layout, it was all the furniture around it. Take the furniture
+   away and the same board reads as a game filling the screen rather than a
+   widget sitting in a page.
+
+   The controls float over the space beneath the board instead of taking a row
+   of their own, which is free: the board is limited by width on a phone, so
+   the height under it was never going to become board anyway. */
+
+body.snake-immersive {
+  overflow: hidden;
+}
+
+body.snake-immersive .site-nav {
+  display: none;
+}
+
+body.snake-immersive .page.theme-snake {
+  max-width: none;
+  padding: 0;
+  gap: 0;
+}
+
+body.snake-immersive .theme-snake .back-link,
+body.snake-immersive .theme-snake .page-header,
+body.snake-immersive .theme-snake .snake-modes,
+body.snake-immersive .theme-snake .snake-rules,
+body.snake-immersive .theme-snake .room-header {
+  display: none;
+}
+
+body.snake-immersive .theme-snake .game-panel {
+  position: relative;
+  padding: 0;
+  gap: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.snake-immersive .theme-snake .online-room {
+  gap: 0;
+}
+
+/* The score rides on top of the board rather than above it. */
+body.snake-immersive .theme-snake .snake-status {
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  left: 0;
+  right: 0;
+  margin: 0;
+  /* The right padding keeps the chips clear of the exit button, which shares
+     this corner - they collided and sat on top of each other. */
+  padding: 10px 92px 22px 12px;
+  justify-content: flex-start;
+  gap: 8px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(9, 11, 15, 0.92) 0%, rgba(9, 11, 15, 0) 100%);
+}
+
+/* Hidden mid-match: a "New Game" button under your thumb during a run is a
+   mis-tap waiting to happen, and the run already ends on its own. */
+body.snake-immersive .theme-snake .snake-status .btn {
+  display: none;
+}
+
+/* The board centres in the space ABOVE the controls rather than in the whole
+   screen, so the empty room ends up under it where the pad already is instead
+   of being split evenly above and below. Capped as a fraction of the viewport
+   so a short screen does not give away board to make the gap. */
+body.snake-immersive .theme-snake .snake-stage {
+  padding-bottom: min(180px, 22vh);
+}
+
+/* NB: the stage keeps `flex: 1 1 0` from the base rule. Relaxing it to
+   `1 1 auto` here made the basis content-derived, which with a container-sized
+   box holding only an absolutely-positioned board is circular - and collapsed
+   the board to eight pixels. */
+
+body.snake-immersive .theme-snake .snake-board {
+  border-radius: 0;
+  border-width: 4px;
+  /* Lifted by half the room reserved for the controls. The padding above sets
+     how big the board may be, but absolute positioning centres against the
+     PADDING box, so the board stayed dead centre with equal dead space above
+     and below. Shifting it puts the board where the eyes are and the empty
+     room where the thumbs are. */
+  transform: translate(-50%, -50%) translateY(calc(min(180px, 22vh) / -2));
+}
+
+/* Controls float in the space below the board. */
+body.snake-immersive .theme-snake .snake-pad {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  width: min(300px, 82vw);
+  max-width: none;
+}
+
+body.snake-immersive .theme-snake .pad-btn {
+  background: rgba(13, 17, 23, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* Leaving the game, kept small and out of the way but always reachable. */
+.snake-exit {
+  position: absolute;
+  z-index: 6;
+  top: max(8px, env(safe-area-inset-top, 0px));
+  right: 10px;
+  display: none;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  background: rgba(13, 17, 23, 0.72);
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: none;
+}
+
+body.snake-immersive .snake-exit {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* Start-screen actions sit side by side so the full-screen offer is visible
+   without competing with Start. */
+.snake-start-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
