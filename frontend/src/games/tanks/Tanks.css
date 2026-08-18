@@ -10,7 +10,6 @@
   --tk-wall: #8b98a8;
   --tk-spark: #fde68a;
   --tk-blast: #f472b6;
-  --tk-fire: #f87171;
 }
 
 /* ---- page: the same fit-the-screen layout Snake uses ---- */
@@ -223,9 +222,8 @@
 
 /* ---- controls ---- */
 
-/* Three controls now, not two: drive, aim, fire. Laid out as a flex row and
-   sized in vw so the whole strip fits a 320px phone without a media query
-   stack - the pads and the trigger shrink together and keep their spacing. */
+/* Two controls: drive, and aim-and-shoot. Laid out as a flex row and sized in
+   vw so the strip fits a 320px phone without a media-query stack. */
 .tk-controls {
   flex: 0 0 auto;
   display: flex;
@@ -235,11 +233,6 @@
   margin-top: 10px;
 }
 
-.tk-aimside {
-  display: flex;
-  align-items: center;
-  gap: clamp(8px, 2.5vw, 14px);
-}
 
 .tk-pad {
   position: relative;
@@ -347,48 +340,18 @@ body.snake-immersive .tk-controls { padding: 0 10px 10px; margin-top: 6px; }
   background: rgba(255, 255, 255, 0.03);
 }
 
-/* The trigger.
-   Its own control, because sharing one with the aim stick meant every
-   adjustment to the aim also fired the gun - the complaint that prompted the
-   split. Round and thumb-sized, sitting beside the stick that just aimed. */
-.tk-fire {
-  position: relative;
-  flex: 0 0 auto;
-  width: clamp(58px, 17vw, 82px);
-  height: clamp(58px, 17vw, 82px);
-  padding: 0;
-  border-radius: 50%;
-  border: 2px solid color-mix(in srgb, var(--tk-fire) 45%, transparent);
-  background: color-mix(in srgb, var(--tk-fire) 12%, rgba(13, 17, 23, 0.92));
-  color: var(--tk-fire);
-  overflow: hidden;
-  touch-action: none;
-  -webkit-user-select: none;
-  user-select: none;
-  cursor: pointer;
-  transition: transform 80ms ease, border-color 120ms ease;
-}
-
-/* Loaded and ready, so the trigger itself says when there is a shot to take
-   rather than making you read a bar somewhere else. */
-.tk-fire.is-ready { border-color: var(--tk-fire); }
-.tk-fire.is-down  { transform: scale(0.94); }
-
-/* Reload, filling the button from the bottom. */
-.tk-fire-load {
+/* Reload, shown on the control the thumb is already on. */
+.tk-reload {
   position: absolute;
-  inset: 0;
-  background: color-mix(in srgb, var(--tk-fire) 30%, transparent);
-  transform-origin: center bottom;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 3px;
+  border-radius: 0 0 999px 999px;
+  background: var(--tk-p1);
+  transform-origin: left center;
   transition: transform 60ms linear;
-  pointer-events: none;
-}
-
-.tk-fire-label {
-  position: relative;
-  font-family: var(--font-mono, monospace);
-  font-size: 0.62rem;
-  letter-spacing: 0.1em;
+  opacity: 0.85;
   pointer-events: none;
 }
 
@@ -430,6 +393,19 @@ body.snake-immersive .tk-controls { padding: 0 10px 10px; margin-top: 6px; }
   font-size: 0.52rem;
 }
 
+/* How to shoot, for the device that cannot see the keyboard reminder. */
+.tk-touch-hint {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+.tk-touch-hint strong { color: var(--tk-p1); font-weight: 500; }
+
+@media (hover: hover) and (pointer: fine) {
+  .tk-touch-hint { display: none; }
+}
+
 /* Keyboard reminder, only where there is a pointer that could use it. */
 .tk-keys {
   display: none;
@@ -448,7 +424,6 @@ body.snake-immersive .tk-controls { padding: 0 10px 10px; margin-top: 6px; }
   /* Still sized against the viewport, just with a lower ceiling - a fixed
      size here overflowed a desktop window narrowed to phone width, which is
      the one case the touch clamp above does not cover. */
-  .tk-pad  { width: clamp(80px, 26vw, 104px); height: clamp(80px, 26vw, 104px); }
-  .tk-fire { width: clamp(52px, 17vw, 64px); height: clamp(52px, 17vw, 64px); }
+  .tk-pad { width: clamp(80px, 26vw, 104px); height: clamp(80px, 26vw, 104px); }
   .tk-stage { cursor: crosshair; }
 }

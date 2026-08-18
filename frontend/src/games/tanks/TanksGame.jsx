@@ -12,6 +12,10 @@ import './Tanks.css'
 
 const COUNTDOWN_MS = 3000
 const STALL_WARNING_MS = 1200
+/** How close the gun must be to the released angle before a committed shot
+    goes. About seven degrees - tight enough that the shell lands where the
+    guide said, loose enough that it never feels like a delay. */
+const AIM_TOLERANCE = 0.12
 
 const CONNECTION_COPY = {
   connecting: 'Connecting…',
@@ -52,18 +56,26 @@ export default function TanksGame() {
   const moveRef = useRef({ mx: 0, my: 0 })
   const aimRef = useRef(null)
   /**
-   * True while the FIRE control is held - the button on a phone, the mouse
-   * button or space on a desktop. The gun goes off as soon as it reloads.
-   *
-   * This used to be the aim stick itself, and before that a release-to-fire
-   * gesture, and both were wrong in the same way: every adjustment to the aim
-   * was also a trigger pull, so you could not line a shot up without letting
-   * one go somewhere you did not mean. Aiming and firing are now separate
-   * controls and the aim stick cannot discharge the gun at all.
+   * Held fire, for a mouse: click and hold on the board keeps shooting as the
+   * gun comes back. Touch does not use this - see the committed shot below.
    */
   const holdingRef = useRef(false)
-  /** Mirrored into state only so the fire button can look pressed. */
-  const [firing, setFiring] = useState(false)
+  /**
+   * A shot committed by lifting the finger off the aim stick.
+   *
+   * Firing on release rather than on touch is what makes the aim adjustable:
+   * you can push the stick around for as long as you like, watch the guide
+   * swing, and nothing leaves the barrel until you let go. Holding to fire
+   * discharged the gun while you were still deciding, which is the whole
+   * complaint.
+   *
+   * It is a commitment rather than an immediate shot, because the turret is
+   * heavy now. Flick the stick and let go inside the traverse and the gun is
+   * still coming round - firing right then sends the shell somewhere you
+   * never aimed. So the shot waits, at most a fraction of a second, for the
+   * gun to actually reach the angle you released at.
+   */
+  const committedRef = useRef(false)
   const keysRef = useRef(new Set())
   const stageRef = useRef(null)
 
@@ -164,6 +176,21 @@ export default function TanksGame() {
       // limit, so there is nothing to spam by holding it down.
       if (holdingRef.current || keys.has(' ')) duel.setInput({ fire: true })
 
+      // A committed shot goes the moment the gun is actually pointing where
+      // it was released. `fire` is consumed by the next tick, so setting it
+      // once is one shell and not a stuck trigger.
+      if (committedRef.current) {
+        const me = duel.state.tanks[duel.localSeat]
+        const want = aimRef.current
+        const onTarget =
+          want === null || me == null || Math.abs(wrap(want - me.turret)) < AIM_TOLERANCE
+        if (!me?.alive) committedRef.current = false
+        else if (onTarget) {
+          duel.setInput({ fire: true })
+          committedRef.current = false
+        }
+      }
+
       const interval = duel.tickInterval()
       if (accumulator >= interval) {
         accumulator -= interval
@@ -230,7 +257,7 @@ export default function TanksGame() {
    * backstop: wherever the release happens, the trigger comes up with it.
    */
   useEffect(() => {
-    const release = () => { holdingRef.current = false; setFiring(false) }
+    const release = () => { holdingRef.current = false }
     window.addEventListener('pointerup', release)
     window.addEventListener('pointercancel', release)
     window.addEventListener('blur', release)
@@ -246,7 +273,7 @@ export default function TanksGame() {
   useEffect(() => {
     if (countdown !== null || game?.status === 'over') {
       holdingRef.current = false
-      setFiring(false)
+      committedRef.current = false
     }
   }, [countdown, game?.status])
 
@@ -417,53 +444,52 @@ export default function TanksGame() {
                     <span className="tk-pad-label">MOVE</span>
                   </div>
 
-                  {/* Aims and only aims. Nothing on this pad can fire. */}
-                  <div className="tk-aimside">
-                    <div
-                      className="tk-pad tk-aimpad"
-                      onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); onAim(e) }}
-                      onPointerMove={(e) => { if (e.buttons || e.pointerType === 'touch') onAim(e) }}
-                    >
-                      <span className="tk-ring" />
-                      {aim !== null && (
-                        <span
-                          className="tk-aim-needle"
-                          style={{ transform: `rotate(${(aim * 180) / Math.PI}deg)` }}
-                        />
-                      )}
-                      <span className="tk-knob is-aim" />
-                      <span className="tk-pad-label">AIM</span>
-                    </div>
-
-                    {/* The trigger, deliberately its own control and reachable
-                        by the same thumb that just finished aiming. */}
-                    <button
-                      type="button"
-                      className={`tk-fire ${firing ? 'is-down' : ''} ${me && me.cooldown === 0 ? 'is-ready' : ''}`}
-                      aria-label="Fire"
-                      onPointerDown={(e) => {
-                        e.currentTarget.setPointerCapture(e.pointerId)
-                        holdingRef.current = true
-                        setFiring(true)
-                      }}
-                      onPointerUp={() => { holdingRef.current = false; setFiring(false) }}
-                      onPointerCancel={() => { holdingRef.current = false; setFiring(false) }}
-                      onContextMenu={(e) => e.preventDefault()}
-                    >
-                      {/* Reload, on the control that is waiting for it. */}
+                  {/* Aim and shoot, in one gesture: drag to lay the gun on,
+                      lift off to fire. Nothing leaves the barrel while your
+                      thumb is still down, so the aim is yours to change right
+                      up to the moment you let go. */}
+                  <div
+                    className="tk-pad tk-aimpad"
+                    onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); onAim(e) }}
+                    onPointerMove={(e) => { if (e.buttons || e.pointerType === 'touch') onAim(e) }}
+                    onPointerUp={() => { committedRef.current = true }}
+                    // A cancelled gesture is the browser taking the touch away,
+                    // not the player choosing to shoot, so it must not fire.
+                    onPointerCancel={() => { committedRef.current = false }}
+                  >
+                    <span className="tk-ring" />
+                    {aim !== null && (
                       <span
-                        className="tk-fire-load"
-                        style={{ transform: `scaleY(${me ? 1 - me.cooldown / RELOAD_MS : 1})` }}
+                        className="tk-aim-needle"
+                        style={{ transform: `rotate(${(aim * 180) / Math.PI}deg)` }}
                       />
-                      <span className="tk-fire-label">FIRE</span>
-                    </button>
+                    )}
+                    <span className="tk-knob is-aim" />
+                    <span className="tk-pad-label">AIM</span>
+                    {/* Reload, back on the only control there is. */}
+                    {me && (
+                      <span
+                        className="tk-reload"
+                        style={{ transform: `scaleX(${1 - me.cooldown / RELOAD_MS})` }}
+                      />
+                    )}
                   </div>
                 </div>
               )}
 
+              {/* Touch only, and only while there is something to shoot at.
+                  The label inside a round pad has room for one short word -
+                  "AIM · LIFT TO FIRE" was clipped to nonsense by the circle. */}
+              {!over && countdown === null && (
+                <p className="tk-touch-hint">
+                  Drag to aim · <strong>lift off to fire</strong>
+                </p>
+              )}
+
               <p className="tk-keys">
                 <strong>WASD</strong> or arrows to move · <strong>mouse</strong> to aim ·
-                <strong> click</strong> or <strong>space</strong> to fire
+                <strong> click</strong> or <strong>space</strong> to fire ·
+                on a phone, <strong>lift off the aim stick</strong>
               </p>
             </>
           )}

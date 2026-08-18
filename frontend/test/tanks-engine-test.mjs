@@ -293,7 +293,10 @@ console.log('\nhits and rounds:')
   check('you cannot shoot yourself point blank', own.tanks[0].alive)
 
   let bank = empty()
-  bank.tanks[0] = { ...bank.tanks[0], x: 148, y: 110, turret: 0 }   // fire into the near wall
+  // Close to the right-hand wall, derived from the arena rather than written
+  // out: at a fixed 148 this sat outside the arena the moment it narrowed, and
+  // the shell was born in the wall instead of bouncing off it.
+  bank.tanks[0] = { ...bank.tanks[0], x: ARENA.w - 14, y: 110, turret: 0 }
   park(bank)
   bank = step(bank, { 0: { fire: true } })
   let hitSelf = false

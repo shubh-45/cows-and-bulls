@@ -13,8 +13,23 @@
 
 /* ---- shape of the world ------------------------------------------------- */
 
-/** Portrait, because that is the shape of the screen it is played on. */
-export const ARENA = { cols: 8, rows: 11, cell: 20, w: 160, h: 220 }
+/**
+ * Portrait, because that is the shape of the screen it is played on.
+ *
+ * Seven columns rather than eight, to make the TANK bigger. The row count is
+ * unchanged: it must stay odd so the 180-degree mirror has a single middle
+ * row, and dropping to nine left exactly one usable row of cover between the
+ * spawn band and the divider.
+ *
+ * That is not the obvious lever, so: the viewBox IS the arena, and on a phone
+ * the board is limited by the screen's WIDTH. A tank's size on screen is
+ * therefore TANK_R measured against ARENA.w, while how well it fits a corridor
+ * is TANK_R measured against ARENA.cell. Winding TANK_R up alone improves the
+ * first and ruins the second - past about 8.4 the tank stops fitting through
+ * its own arena. Dropping a column shrinks ARENA.w without touching the cell,
+ * so the tank grows on screen at exactly the clearance it had before.
+ */
+export const ARENA = { cols: 7, rows: 11, cell: 20, w: 140, h: 220 }
 
 /** 30Hz. Fast enough that steering feels continuous, slow enough that a
     snapshot per tick stays a few KB a second. */
@@ -24,7 +39,7 @@ const DT = TICK_MS / 1000
 /** Sized against the 20-unit cell: a tank is most of a corridor, not a dot in
     it. The art in Board.jsx is scaled from this, so the thing you see and the
     thing that gets hit are the same size by construction. */
-export const TANK_R = 8.4
+export const TANK_R = 8.6
 export const TANK_SPEED = 33        // units per second, flat out
 
 /**
@@ -175,13 +190,18 @@ export function buildArena(seed) {
   // whole layout depends on. Its gaps are symmetric about the vertical centre
   // too, or a corridor would open on one side and be walled on the other.
   //
-  // Two cells wide, not one. A tank is now 16.8 units across in a 20-unit
-  // cell, so a single-cell gap left 1.6 units of clearance either side - a
-  // doorway you had to line up on, with a tank that no longer stops on a
-  // penny. Widening it is the same change as thinning the field: less of the
-  // arena is wall. The set stays symmetric under col -> cols-1-col, or a
-  // corridor would open on one side and be bricked up on the other.
-  const GAPS = new Set([1, 2, ARENA.cols - 3, ARENA.cols - 2])
+  // One cell each, and they sit on the guaranteed lanes.
+  //
+  // These were two cells wide when the arena was eight columns across. At
+  // seven, taking four of them out leaves a divider of nothing but the two
+  // walls and the middle crate - which is not a divider, and the opening shot
+  // it exists to deny comes straight back. One cell each keeps it a wall with
+  // doors in it. They cost nothing in passability because they are the same
+  // columns LANE_COL clears for the full height of the arena, so the route the
+  // generator promises runs through them. The set stays symmetric under
+  // col -> cols-1-col, or a corridor would open on one side and be bricked up
+  // on the other.
+  const GAPS = new Set([LANE_COL, ARENA.cols - 1 - LANE_COL])
   for (let col = 0; col < ARENA.cols; col++) {
     if (GAPS.has(col)) continue
     // The spawn column gets a CRATE rather than steel or a hole. Steel there
