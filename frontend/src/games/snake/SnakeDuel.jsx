@@ -439,6 +439,7 @@ export default function SnakeDuel({ onExit }) {
             // remember and nothing to get the wrong way round.
             palette={seat === 0 ? ['p1', 'p2'] : ['p2', 'p1']}
             localIndex={seat}
+            smoothCorrections
             tickMs={TICK_MS}
           />
 

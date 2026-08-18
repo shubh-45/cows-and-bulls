@@ -324,7 +324,9 @@
   text-align: center;
   color: var(--muted);
   pointer-events: none;
-  backdrop-filter: blur(2px);
+  /* No backdrop-filter here either: this notice sits ON the live board, so
+     blurring behind it repaints the board underneath every frame - and it
+     appears exactly when the connection is already struggling. */
 }
 
 /* ---- board ---- */
@@ -839,10 +841,15 @@ body.snake-immersive .theme-snake .snake-pad {
   max-width: none;
 }
 
+/* Opaque, not blurred.
+   These four buttons float over the board for the whole match, and a
+   backdrop-filter makes the browser re-blur what is behind each one every
+   time it changes - which, with a snake moving across it, is every single
+   frame. Four live blurs over an animating board is the most expensive thing
+   on the page and it cost both modes their smoothness on a phone. A solid
+   panel reads the same at a glance and costs nothing. */
 body.snake-immersive .theme-snake .pad-btn {
-  background: rgba(13, 17, 23, 0.72);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(13, 17, 23, 0.92);
 }
 
 /* Leaving the game, kept small and out of the way but always reachable. */

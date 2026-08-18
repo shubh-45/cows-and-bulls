@@ -37,9 +37,9 @@ export default function SnakeBoard({
   facing = null,
   palette = ['p1', 'p2'],
   localIndex = 0,
-  // Only used to judge what counts as ordinary movement between frames, for
-  // the correction smoothing. The solo game is never corrected, so its default
-  // is only ever a formality.
+  // Correction smoothing, for the duel only. See the Snake component below for
+  // why the solo game must not have it.
+  smoothCorrections = false,
   tickMs = 220,
 }) {
   const gesture = useRef(null)
@@ -122,6 +122,7 @@ export default function SnakeBoard({
             snake={snake}
             next={nextState?.snakes?.[index] ?? null}
             progress={progress}
+            smoothCorrections={smoothCorrections}
             tickMs={tickMs}
             tone={palette[index] ?? 'p1'}
             facing={index === localIndex ? facing : null}
@@ -134,20 +135,22 @@ export default function SnakeBoard({
   )
 }
 
-function Snake({ snake, next, progress, tickMs, tone, facing, marked }) {
+function Snake({ snake, next, progress, tickMs, smoothCorrections, tone, facing, marked }) {
   // One smoother per snake, kept across frames. The two are corrected
   // independently, so they cannot share one.
   const smoother = useRef(null)
   if (!smoother.current) smoother.current = createSmoother()
 
-  // Where the snake really is, then where it should be DRAWN. Only the second
-  // of these is allowed to differ from the truth, and only for about a tenth
-  // of a second after a correction.
-  const cells = smoother.current.apply(
-    glidingBody(snake, next, progress),
-    now(),
-    tickMs
-  )
+  // Where the snake really is, then where it should be DRAWN.
+  //
+  // Smoothing is the DUEL's, and must stay that way. The solo game passes no
+  // `next` and no `progress`, so it does not glide at all - its head moves a
+  // whole cell the instant a tick lands. The smoother cannot tell that apart
+  // from a correction, so it eased every single tick and left the solo snake
+  // permanently dragging behind itself. Nothing in solo is ever corrected, so
+  // there was never anything here to smooth.
+  const raw = glidingBody(snake, next, progress)
+  const cells = smoothCorrections ? smoother.current.apply(raw, now(), tickMs) : raw
   const points = cells.map((part) => `${part.x + 0.5},${part.y + 0.5}`).join(' ')
   const head = cells[0]
   // The eyes look where the *accepted* input points, which may be one tick

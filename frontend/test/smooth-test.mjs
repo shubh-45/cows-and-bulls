@@ -123,5 +123,26 @@ console.log('\nthe smoother stays out of the way when nothing is wrong:')
     `left at ${settled[0].x.toFixed(3)},${settled[0].y.toFixed(3)}`)
 }
 
+console.log('\nsmoothing belongs to the duel and nowhere else:')
+{
+  // The trap, written down because it already caught us once. The solo game
+  // passes no `next` and no `progress`, so glidingBody hands back the raw body
+  // and the head moves a WHOLE CELL the instant a tick lands. The smoother
+  // cannot tell that from a correction - it eases every tick, and the solo
+  // snake ends up drawn permanently behind itself.
+  const sm = createSmoother()
+  let t = 0, x = 2, since = 0, worstLag = 0
+  for (let f = 0; f < 600; f++) {
+    t += FRAME; since += FRAME
+    if (since >= TICK_MS) { since -= TICK_MS; x += 1 }
+    const snake = { body: [{x,y:7},{x:x-1,y:7},{x:x-2,y:7}], alive: true, dir: 'right' }
+    const out = sm.apply(glidingBody(snake, null, 0), t, TICK_MS)
+    worstLag = Math.max(worstLag, Math.abs(out[0].x - x))
+  }
+  check('whole-cell steps ARE treated as corrections - so ungliding boards must not smooth',
+    worstLag > 0.2,
+    `only lagged ${worstLag.toFixed(3)} cells; if this ever stops being true, re-check why Board.jsx gates on smoothCorrections`)
+}
+
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
